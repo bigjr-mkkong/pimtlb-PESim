@@ -6,6 +6,7 @@
 
 
 bool HMT_table_t::accept_fatptr(size_t varidx, size_t offset, HMT_flag_t flag) {
+    // auto val = hmt_table.find(varidx);
     auto val = hmt_table.find(varidx);
 
     if (val == hmt_table.end()){
@@ -18,7 +19,8 @@ bool HMT_table_t::accept_fatptr(size_t varidx, size_t offset, HMT_flag_t flag) {
         return false;
     }
 
-    if(val->second->get_flags() != flag) {
+    if(val->second->get_flags() != HMT_flag_t::RW &&\
+            val->second->get_flags() != flag) {
         fprintf(stderr, "Varidx %d invalid flag\n");
         return false;
     }

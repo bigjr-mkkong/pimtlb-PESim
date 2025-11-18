@@ -6,29 +6,27 @@
 #include "libpimeval.h"
 
 enum Opcode{
-    LOAD,
-    STORE,
     MUL,
-    ADD
+    ADD,
+    EXIT
 };
 
 struct fatptr{
     size_t varidx;
     size_t offset;
-    HMT_flag_t flag;
 };
 
 struct instruction_t{
     Opcode opcode;
-    int reg;
+    int reg1, reg2;
     std::vector<fatptr> oprands;
 };
 
 class IMEM_t{
-    std::vector<instruction_t> insts;
-    size_t max_pc;
-
     public:
+    size_t max_pc;
+    std::vector<instruction_t> insts;
+
     IMEM_t(): max_pc(0){};
     instruction_t &get_by_pc(size_t pc);
     void push_inst(instruction_t &inst);
@@ -39,13 +37,15 @@ class cpu_t{
    size_t clock_cntr, next_clock_cntr;
    instruction_t readed_inst;
 
+
    PimObjId rf[16];
-   IMEM_t &imem;
-   std::vector<uint8_t> mem;
-   HMT_table_t hmt;
+   IMEM_t *imem;
+   HMT_table_t *hmt;
 
    public:
-   cpu_t(IMEM_t &imem): pc(0), clock_cntr(0), imem(imem){};
+   bool cpu_stop = false;
+   std::vector<uint8_t> mem;
+   cpu_t(IMEM_t *imem, HMT_table_t *hmt): pc(0), clock_cntr(0), imem(imem), hmt(hmt){};
 
    void read_inst();
    void deco_inst();

@@ -39,7 +39,7 @@ class HMT_table_t{
     std::map<size_t, std::unique_ptr<HMT_entry_t>> hmt_table;
 
     public:
-    HMT_table_t();
+    // HMT_table_t();
     bool accept_fatptr(size_t varidx, size_t offset, HMT_flag_t flag);
     PimObjId get_pim_obj_id(size_t varidx);
     size_t get_base_addr(size_t varidx);
