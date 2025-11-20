@@ -6,10 +6,10 @@
 #include "HMT.h"
 #include "libpimeval.h"
 
-// #define PIM_FUSE
 enum Opcode{
     MUL,
     ADD,
+    SCALED_ADD,
     EXIT,
     NOP
 };
@@ -21,7 +21,7 @@ struct fatptr{
 
 struct instruction_t{
     Opcode opcode;
-    int reg1, reg2;
+    int imm0, imm1;
     std::vector<fatptr> oprands;
 };
 
@@ -43,25 +43,21 @@ class cpu_t{
 
     PimFusionBlock *fused;
     
-    
-    PimObjId rf[16];
     IMEM_t *imem;
     HMT_table_t *hmt;
-    
+
     public:
     bool cpu_stop;
     std::vector<uint8_t> mem;
-    cpu_t(IMEM_t *imem, HMT_table_t *hmt):\
+    cpu_t(IMEM_t *imem, HMT_table_t *hmt, PimFusionBlock *progs):\
         pc(0),\
         readed_inst_valid(false),\
         clock_cntr(0),\
         cpu_stop(false),\
         imem(imem),\
         hmt(hmt){
-            fused = new PimFusionBlock;
+            fused = progs;
         };
-
-    void env_before();
 
     void read_inst();
     void deco_inst();
