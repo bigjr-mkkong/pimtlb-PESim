@@ -21,8 +21,18 @@ void IMEM_t::push_inst(instruction_t &inst){
 
 
 void cpu_t::read_inst(){
+    if(imem->insts.size() == pc){
+        readed_inst_valid = false;
+        return;
+    }
+
     instruction_t &inst = imem->get_by_pc(pc);
     readed_inst = inst;
+    readed_inst_valid = true;
+
+    printf("cycle %d issued inst\n", clock_cntr);
+
+    return;
 }
 
 void cpu_t::deco_inst(){
@@ -40,8 +50,13 @@ void cpu_t::deco_inst(){
                 exit(1);
             }
             PimObjId arg_2 = hmt->get_pim_obj_id(varid_1);
+#ifdef PIM_FUSE
+            fused->add(pimAdd, arg_1, arg_2, arg_1);
+#else
             PimStatus result = pimAdd(arg_1, arg_2, arg_1);
             assert(result == PIM_OK);
+#endif
+            printf("cycle %d decoded ADD\n", clock_cntr);
             break;
         }
         case Opcode::MUL: {
@@ -57,26 +72,40 @@ void cpu_t::deco_inst(){
                 exit(1);
             }
             PimObjId arg_2 = hmt->get_pim_obj_id(varid_1);
+#ifdef PIM_FUSE
+            fused->add(pimMul, arg_1, arg_2, arg_1);
+#else
             PimStatus result = pimMul(arg_1, arg_2, arg_1);
             assert(result == PIM_OK);
+#endif
+            printf("cycle %d decoded MUL\n", clock_cntr);
             break;
         }
         case Opcode::EXIT: {
             cpu_stop = true;
+            printf("cycle %d decoded EXIT\n", clock_cntr);
+            break;
+        }
+        case Opcode::NOP: {
+            printf("cycle %d decoded NOP\n", clock_cntr);
             break;
         }
     }
 }
 
-
 void cpu_t::tick(){
-    read_inst();
-    next_pc = pc + 1;
+    if (readed_inst_valid && !cpu_stop) {
+        deco_inst();
+    }
 
-    deco_inst();
+    read_inst();
+
+    next_pc = pc + 1;
     next_clock_cntr = clock_cntr + 1;
 
-
+    /*
+     * Sequential logics
+     */
     pc = next_pc;
     clock_cntr = next_clock_cntr;
 }

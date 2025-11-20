@@ -133,6 +133,7 @@ bool pimIsAnalysisMode();
  */
 PimStatus pimCreateDevice(PimDeviceEnum deviceType, unsigned numRanks, unsigned numBankPerRank, unsigned numSubarrayPerBank, unsigned numRows, unsigned numCols, unsigned bufferSize = 0);
 PimStatus pimCreateDeviceFromConfig(PimDeviceEnum deviceType, const char* configFileName);
+PimStatus pimCreateDeviceFromConfig_HMT(PimDeviceEnum deviceType, const char* configFileName, bool HMT_flag);
 PimStatus pimGetDeviceProperties(PimDeviceProperties* deviceProperties);
 PimStatus pimDeleteDevice();
 

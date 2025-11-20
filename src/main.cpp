@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <iostream>
 #include <vector>
+#include <cstring>
 #include "HMT.h"
 #include "cpu.h"
 #include "libpimeval.h"
@@ -14,7 +15,14 @@ void init_pim_imem(IMEM_t *pim_imem) {
             0xdead,
             {
                 (fatptr){0xcca, 0},
-                (fatptr){0xbbc, 0}
+                (fatptr){0xbbc, 0},
+            }
+        },
+        (instruction_t){
+            Opcode::NOP,
+            0xdead,
+            0xdead,
+            {
             }
         },
         (instruction_t){
@@ -22,6 +30,7 @@ void init_pim_imem(IMEM_t *pim_imem) {
             0,
             0,
             {
+                (fatptr){0xcca, 0},
             }
         },
     };
@@ -64,6 +73,9 @@ void init_pim_hmt(cpu_t *cpu, HMT_table_t *hmt){
         exit(1);
     }
 
+    pimCopyHostToDevice((void*)cpu->mem.data(), a_id, 0UL, 0UL);
+    pimCopyHostToDevice((void*)(cpu->mem.data() + sizeof(int) * 32), b_id, 0UL, 0UL);
+
     hmt->add_new_ent(\
             (size_t)(0),\
             0xcca,\
@@ -83,14 +95,11 @@ void init_pim_hmt(cpu_t *cpu, HMT_table_t *hmt){
 }
 
 
-void init_pimdev(){
-    unsigned numRanks = 4;
-    unsigned numBankPerRank = 128; // 8 chips * 16 banks
-    unsigned numSubarrayPerBank = 32;
-    unsigned numRows = 1024;
-    unsigned numCols = 8192;
-
-    PimStatus status = pimCreateDevice(PIM_FUNCTIONAL, numRanks, numBankPerRank, numSubarrayPerBank, numRows, numCols);
+void init_pimdev(bool has_hmt){
+    /*
+     * For some reason, PIM_DEVICE_BANK_LEVEL will eat too much memory and trigger OOM killer
+     */
+    PimStatus status = pimCreateDeviceFromConfig_HMT(PIM_FUNCTIONAL, "cfg/PIMeval_Bank_Rank1.cfg", has_hmt);
     if (status != PIM_OK)
     {
       std::cout << "init_pimdev(): Abort" << std::endl;
@@ -98,9 +107,18 @@ void init_pimdev(){
     }
 }
 
-int main(void) {
-    init_pimdev();
+int main(int argc, char **argv) {
+    bool has_hmt = false;
 
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--hmt") == 0) {
+            has_hmt = true;
+            break;
+        }
+    }
+
+    
+    init_pimdev(has_hmt);
 
     IMEM_t *pim_imem = new IMEM_t();
     init_pim_imem(pim_imem);
@@ -112,11 +130,28 @@ int main(void) {
 
     for(int i=0; i<100; i++){
         if(pim_cpu->cpu_stop == true){
-            printf("Program exit before run out of time :)\n");
+            printf("Program exit\n");
             break;
         }
         pim_cpu->tick();
     }
+
+#ifdef PIM_FUSE
+    pim_cpu->exec_fuse();
+#endif
+    /*
+     * TODO
+     * pimFree() all memory after finished
+     */
+    pimShowStats();
+
+    int *result = (int*)calloc(1, sizeof(int) * 128);
+    PimStatus ret = pimCopyDeviceToHost(0, (void*)result, 0UL, 0UL);
+    assert(ret == PIM_OK);
+    ret = pimCopyDeviceToHost(0, (void*)(result + sizeof(int) * 32), 0UL, 0UL);
+    assert(ret == PIM_OK);
+
+    assert(result[15] == 3); // random check for result
 
     printf("Finished\n");
 
