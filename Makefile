@@ -8,7 +8,8 @@ INC_DIR  := include
 BUILD_DIR := build
 BIN_DIR   := bin
 
-LIBPIMEVAL := ../PIM-AutoDSE/libpimeval/lib/libpimeval.a
+# LIBPIMEVAL := ../PIM-AutoDSE/libpimeval/lib/libpimeval.a
+LIBPIMEVAL := ./lib/libpimeval.a
 
 # Target executable
 TARGET := $(BIN_DIR)/app

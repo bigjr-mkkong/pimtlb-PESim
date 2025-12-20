@@ -102,6 +102,14 @@ void Sim::init_imem(){
                 (fatptr){0xbbc, 0},//src1
             }
         },
+
+        (instruction_t){
+            Opcode::JUMP,
+            0x0,
+            0xdead,
+            {
+            }
+        },
         // (instruction_t){
         //     Opcode::ADD,
         //     0xdead,

@@ -11,6 +11,7 @@ enum Opcode{
     ADD,
     SCALED_ADD,
     EXIT,
+    JUMP,
     NOP
 };
 
@@ -40,6 +41,10 @@ class cpu_t{
     size_t clock_cntr, next_clock_cntr;
     instruction_t readed_inst;
     bool readed_inst_valid;
+    bool need_jump;
+
+    bool deco_flush;
+    bool fl_hold;
 
     PimFusionBlock *fused;
     
@@ -55,6 +60,8 @@ class cpu_t{
         clock_cntr(0),\
         cpu_stop(false),\
         imem(imem),\
+        need_jump(false),\
+        fl_hold(false),\
         hmt(hmt){
             fused = progs;
         };

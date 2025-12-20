@@ -146,6 +146,17 @@ void cpu_t::deco_inst(){
             printf("cycle %d decoded SCALED_ADD\n", clock_cntr);
             break;
         }
+        case Opcode::JUMP: {
+            int target = readed_inst.imm0;
+            if(target < 0 || target > imem->max_pc) {
+                fprintf(stderr, "Invalid target pc\n");
+                exit(1);
+            }
+            next_pc = target;
+            need_jump = true;
+            deco_flush = true;
+            break;
+        }
         case Opcode::EXIT: {
             cpu_stop = true;
             printf("cycle %d decoded EXIT\n", clock_cntr);
@@ -159,13 +170,14 @@ void cpu_t::deco_inst(){
 }
 
 void cpu_t::tick(){
-    if (readed_inst_valid && !cpu_stop) {
+    if (readed_inst_valid && !cpu_stop && !fl_hold) {
         deco_inst();
     }
 
     read_inst();
 
-    next_pc = pc + 1;
+    next_pc = (need_jump)?next_pc:pc + 1;
+    need_jump = false;
     next_clock_cntr = clock_cntr + 1;
 
     /*
@@ -173,4 +185,6 @@ void cpu_t::tick(){
      */
     pc = next_pc;
     clock_cntr = next_clock_cntr;
+    fl_hold = deco_flush;
+    deco_flush = false;
 }
