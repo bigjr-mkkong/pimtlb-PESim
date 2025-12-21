@@ -102,14 +102,6 @@ void Sim::init_imem(){
                 (fatptr){0xbbc, 0},//src1
             }
         },
-
-        (instruction_t){
-            Opcode::JUMP,
-            0x0,
-            0xdead,
-            {
-            }
-        },
         // (instruction_t){
         //     Opcode::ADD,
         //     0xdead,
@@ -120,11 +112,6 @@ void Sim::init_imem(){
         //         (fatptr){0xbbc, 0},//src1
         //     }
         // },
-        (instruction_t){
-            Opcode::NOP,
-            {
-            }
-        },
         (instruction_t){
             Opcode::EXIT,
             {
@@ -142,7 +129,7 @@ void Sim::init_cpu(){
 
 void Sim::sim_begin(size_t max_cycle) {
     for(int i=0; i<max_cycle; i++){
-        if(sim_cpu->cpu_stop == true){
+        if(sim_cpu->cpu_stop == true && sim_cpu->stopable()){
             std::cout<<"Simulation finished"<<std::endl;
             break;
         }

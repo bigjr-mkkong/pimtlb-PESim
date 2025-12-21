@@ -22,13 +22,12 @@ void IMEM_t::push_inst(instruction_t &inst){
 
 void cpu_t::read_inst(){
     if(imem->insts.size() == pc){
-        readed_inst_valid = false;
+        cpu_stop = true;
         return;
     }
 
     instruction_t &inst = imem->get_by_pc(pc);
     readed_inst = inst;
-    readed_inst_valid = true;
 
     printf("cycle %d issued inst\n", clock_cntr);
 
@@ -36,117 +35,95 @@ void cpu_t::read_inst(){
 }
 
 void cpu_t::deco_inst(){
+    IFID_HMT_valid = false;
     switch(readed_inst.opcode) {
         case Opcode::ADD: {
-            PimObjId src0, src1, dst;
-            int varid_dst = readed_inst.oprands[0].varidx;
-            int varid_src0 = readed_inst.oprands[1].varidx;
-            int varid_src1 = readed_inst.oprands[2].varidx;
+            // PimObjId src0, src1, dst;
+            IFID_HMT_varid_dst = readed_inst.oprands[0].varidx;
+            IFID_HMT_varid_src0 = readed_inst.oprands[1].varidx;
+            IFID_HMT_varid_src1 = readed_inst.oprands[2].varidx;
+            IFID_HMT_opc = Opcode::ADD;
+            IFID_HMT_valid = true;
 
-            if(!hmt->accept_fatptr(varid_src0, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src0 = hmt->get_pim_obj_id(varid_src0);
-            }
+            // if(!hmt->accept_fatptr(varid_src0, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     src0 = hmt->get_pim_obj_id(varid_src0);
+            // }
 
-            if(!hmt->accept_fatptr(varid_src1, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src1 = hmt->get_pim_obj_id(varid_src1);
-            }
+            // if(!hmt->accept_fatptr(varid_src1, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     src1 = hmt->get_pim_obj_id(varid_src1);
+            // }
 
-            if(!hmt->accept_fatptr(varid_dst, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                dst = hmt->get_pim_obj_id(varid_dst);
-            }
+            // if(!hmt->accept_fatptr(varid_dst, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     dst = hmt->get_pim_obj_id(varid_dst);
+            // }
 
-#ifdef PIM_FUSE
-            fused->add(pimAdd, src0, src1, dst);
-#else
-            PimStatus result = pimAdd(src0, src1, dst);
-            assert(result == PIM_OK);
-#endif
-            printf("cycle %d decoded ADD\n", clock_cntr);
+// #ifdef PIM_FUSE
+            // fused->add(pimAdd, src0, src1, dst);
+// #else
+            // PimStatus result = pimAdd(src0, src1, dst);
+            // assert(result == PIM_OK);
+// #endif
+            // printf("cycle %d decoded ADD\n", clock_cntr);
             break;
         }
         case Opcode::MUL: {
-            PimObjId src0, src1, dst;
-            int varid_dst = readed_inst.oprands[0].varidx;
-            int varid_src0 = readed_inst.oprands[1].varidx;
-            int varid_src1 = readed_inst.oprands[2].varidx;
-
-            if(!hmt->accept_fatptr(varid_src0, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src0 = hmt->get_pim_obj_id(varid_src0);
-            }
-
-            if(!hmt->accept_fatptr(varid_src1, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src1 = hmt->get_pim_obj_id(varid_src1);
-            }
-
-            if(!hmt->accept_fatptr(varid_dst, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                dst = hmt->get_pim_obj_id(varid_dst);
-            }
-
-#ifdef PIM_FUSE
-            fused->add(pimMul, src0, src1, dst);
-#else
-            PimStatus result = pimMul(src0, src1, dst);
-            assert(result == PIM_OK);
-#endif
-            printf("cycle %d decoded MUL\n", clock_cntr);
+            // PimObjId src0, src1, dst;
+            IFID_HMT_varid_dst = readed_inst.oprands[0].varidx;
+            IFID_HMT_varid_src0 = readed_inst.oprands[1].varidx;
+            IFID_HMT_varid_src1 = readed_inst.oprands[2].varidx;
+            IFID_HMT_opc = Opcode::MUL;
+            IFID_HMT_valid = true;
             break;
         }
         case Opcode::SCALED_ADD: {
-            PimObjId src0, src1, dst;
-            int varid_dst = readed_inst.oprands[0].varidx;
-            int varid_src0 = readed_inst.oprands[1].varidx;
-            int varid_src1 = readed_inst.oprands[2].varidx;
-            int imm = readed_inst.imm0;
+            // PimObjId src0, src1, dst;
+            IFID_HMT_varid_dst = readed_inst.oprands[0].varidx;
+            IFID_HMT_varid_src0 = readed_inst.oprands[1].varidx;
+            IFID_HMT_varid_src1 = readed_inst.oprands[2].varidx;
+            IFID_HMT_imm0 = readed_inst.imm0;
+            IFID_HMT_opc = Opcode::SCALED_ADD;
+            IFID_HMT_valid = true;
 
-            if(!hmt->accept_fatptr(varid_src0, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src0 = hmt->get_pim_obj_id(varid_src0);
-            }
+            // if(!hmt->accept_fatptr(varid_src0, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     src0 = hmt->get_pim_obj_id(varid_src0);
+            // }
 
-            if(!hmt->accept_fatptr(varid_src1, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                src1 = hmt->get_pim_obj_id(varid_src1);
-            }
+            // if(!hmt->accept_fatptr(varid_src1, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     src1 = hmt->get_pim_obj_id(varid_src1);
+            // }
 
-            if(!hmt->accept_fatptr(varid_dst, 32, HMT_flag_t::RW)){
-                fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
-                exit(1);
-            } else {
-                dst = hmt->get_pim_obj_id(varid_dst);
-            }
+            // if(!hmt->accept_fatptr(varid_dst, 32, HMT_flag_t::RW)){
+            //     fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            //     exit(1);
+            // } else {
+            //     dst = hmt->get_pim_obj_id(varid_dst);
+            // }
 
-#ifdef PIM_FUSE
-            fused->add(pimScaledAdd, src0, src1, dst, imm);
-#else
-            PimStatus result = pimScaledAdd(src0, src1, dst, imm);
-            assert(result == PIM_OK);
-#endif
-            printf("cycle %d decoded SCALED_ADD\n", clock_cntr);
+// #ifdef PIM_FUSE
+            // fused->add(pimScaledAdd, src0, src1, dst, imm);
+// #else
+            // PimStatus result = pimScaledAdd(src0, src1, dst, imm);
+            // assert(result == PIM_OK);
+// #endif
+            // printf("cycle %d decoded SCALED_ADD\n", clock_cntr);
             break;
         }
-        case Opcode::JUMP: {
+        case Opcode::BOUND_JUMP: {
             int target = readed_inst.imm0;
             if(target < 0 || target > imem->max_pc) {
                 fprintf(stderr, "Invalid target pc\n");
@@ -154,27 +131,138 @@ void cpu_t::deco_inst(){
             }
             next_pc = target;
             need_jump = true;
-            deco_flush = true;
             break;
         }
         case Opcode::EXIT: {
             cpu_stop = true;
+            IFID_HMT_valid = false;
             printf("cycle %d decoded EXIT\n", clock_cntr);
             break;
         }
         case Opcode::NOP: {
             printf("cycle %d decoded NOP\n", clock_cntr);
+            IFID_HMT_opc = Opcode::NOP;
+            IFID_HMT_valid = true;
             break;
         }
     }
 }
 
-void cpu_t::tick(){
-    if (readed_inst_valid && !cpu_stop && !fl_hold) {
-        deco_inst();
+void cpu_t::hmt_check(){
+    /*
+     * TODO:
+     * implement hmt check in independent stage, and pipe down result
+     * into next RCW(Read-Compute-Write) stage
+     */
+
+    HMT_RCW_valid = false;
+    if(IFID_HMT_opc == Opcode::ADD || IFID_HMT_opc == Opcode::MUL || IFID_HMT_opc == Opcode::SCALED_ADD) {
+        if(!hmt->accept_fatptr(IFID_HMT_varid_src0, 32, HMT_flag_t::RW)){
+            fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            exit(1);
+        } else {
+            HMT_RCW_src0 = hmt->get_pim_obj_id(IFID_HMT_varid_src0);
+        }
+
+        if(!hmt->accept_fatptr(IFID_HMT_varid_src1, 32, HMT_flag_t::RW)){
+            fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            exit(1);
+        } else {
+            HMT_RCW_src1 = hmt->get_pim_obj_id(IFID_HMT_varid_src1);
+        }
+
+        if(!hmt->accept_fatptr(IFID_HMT_varid_dst, 32, HMT_flag_t::RW)){
+            fprintf(stderr, "cpu.cpp: failed to execute MUL\n");
+            exit(1);
+        } else {
+            HMT_RCW_dst = hmt->get_pim_obj_id(IFID_HMT_varid_dst);
+        }
+
+        HMT_RCW_imm0 = (IFID_HMT_opc == Opcode::SCALED_ADD)?IFID_HMT_imm0:0;
     }
 
-    read_inst();
+    HMT_RCW_opc = IFID_HMT_opc;
+    HMT_RCW_valid = true;
+
+    return;
+}
+
+
+void cpu_t::RCW(){
+    switch(HMT_RCW_opc){
+        case Opcode::NOP:
+        {
+            fprintf(stdout, "NOP in RCW stage\n");
+            break;
+        }
+
+        case Opcode::ADD:
+        {
+#ifdef PIM_FUSE
+            fused->add(pimAdd, HMT_RCW_src0, HMT_RCW_src1, HMT_RCW_dst);
+#else
+            PimStatus result = pimAdd(HMT_RCW_src0, HMT_RCW_src1, HMT_RCW_dst);
+            assert(result == PIM_OK);
+#endif
+            break;
+        }
+
+        case Opcode::MUL:
+        {
+#ifdef PIM_FUSE
+            fused->add(pimMul, HMT_RCW_src0, HMT_RCW_src1, HMT_RCW_dst);
+#else
+            PimStatus result = pimMul(HMT_RCW_src0, HMT_RCW_src1, HMT_RCW_dst);
+            assert(result == PIM_OK);
+#endif
+            break;
+        }
+
+        case Opcode::SCALED_ADD:
+        {
+
+#ifdef PIM_FUSE
+            fused->add(pimScaledAdd, HMT_RCW_src0, HMT_RCW_src1, HMT_RCW_dst,\
+                    HMT_RCW_imm0);
+#else
+            PimStatus result = pimScaledAdd(HMT_RCW_src0, HMT_RCW_src1,\
+                    HMT_RCW_dst, HMT_RCW_imm0);
+            assert(result == PIM_OK);
+#endif
+            break;
+        }
+
+        default:
+        {
+            fprintf(stderr, "Unregocnizable Opcode in RCW stage: %d\n",\
+                    HMT_RCW_imm0);
+            exit(1);
+        }
+        
+    }
+    return;
+}
+
+bool cpu_t::stopable(){
+    return !IFID_HMT_valid && !HMT_RCW_valid;
+}
+
+void cpu_t::tick(){
+    if(HMT_RCW_valid){
+        RCW();
+    }
+
+    if(IFID_HMT_valid){
+        hmt_check();
+    } else {
+        HMT_RCW_valid = false;
+    }
+
+    if (!cpu_stop) {
+        IFID_HMT_valid = false;
+        read_inst();
+        deco_inst();
+    }
 
     next_pc = (need_jump)?next_pc:pc + 1;
     need_jump = false;
@@ -185,6 +273,4 @@ void cpu_t::tick(){
      */
     pc = next_pc;
     clock_cntr = next_clock_cntr;
-    fl_hold = deco_flush;
-    deco_flush = false;
 }
