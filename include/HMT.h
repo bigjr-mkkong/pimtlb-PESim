@@ -1,8 +1,12 @@
 #ifndef __HMT_H__
 #define __HMT_H__
 
+#include <array>
+#include <cstdint>
 #include <map>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 #include "libpimeval.h"
 
 #define GETSET(T, N) \
@@ -45,6 +49,23 @@ class HMT_table_t{
     size_t get_base_addr(size_t varidx);
     void add_new_ent(size_t base_addr, size_t varidx, size_t max_len,\
             PimObjId mem_id, HMT_flag_t access_flag);
+};
+
+struct SimdFatptr {
+    uint32_t varidx;
+    int32_t offset;
+};
+
+class SimdMemory {
+public:
+    void add_region(uint32_t varidx, size_t size_bytes);
+    bool check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
+    std::array<uint32_t, 4> load128(const SimdFatptr &ptr) const;
+    void store128(const SimdFatptr &ptr, const std::array<uint32_t, 4> &value);
+    bool equal128(const SimdFatptr &ptr, const std::array<uint32_t, 4> &value) const;
+
+private:
+    std::unordered_map<uint32_t, std::vector<uint8_t>> regions_;
 };
 
 #endif
