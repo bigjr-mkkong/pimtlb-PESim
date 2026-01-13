@@ -98,8 +98,8 @@ enum class SimdOpcode {
     Jump,
     EqualExit,
     FatptrLi,
-    FatptrAdd4,
-    FatptrSub4,
+    FatptrAdd,
+    FatptrSub,
     Nop,
 };
 
@@ -111,6 +111,7 @@ struct SimdInstruction {
     int frd{-1};
     int frs1{-1};
     int imm{0};
+    int mask{0};
     SimdFatptr fatptr_imm{0, 0};
 };
 

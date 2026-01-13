@@ -328,8 +328,8 @@ bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {
         case SimdOpcode::Ld128:
         case SimdOpcode::St128:
         case SimdOpcode::EqualExit:
-        case SimdOpcode::FatptrAdd4:
-        case SimdOpcode::FatptrSub4:
+        case SimdOpcode::FatptrAdd:
+        case SimdOpcode::FatptrSub:
             return true;
         case SimdOpcode::FatptrLi:
             return true;
@@ -376,8 +376,8 @@ void SimdCpu::tick() {
                 vregs_[inst.rd] = mem_wb_.vec_result;
                 break;
             case SimdOpcode::FatptrLi:
-            case SimdOpcode::FatptrAdd4:
-            case SimdOpcode::FatptrSub4:
+            case SimdOpcode::FatptrAdd:
+            case SimdOpcode::FatptrSub:
                 validate_reg_index(inst.frd, kFatptrRegisters, "fatptr register out of range");
                 fregs_[inst.frd] = mem_wb_.fatptr_result;
                 break;
@@ -411,8 +411,8 @@ void SimdCpu::tick() {
                 next_mem_wb.should_stop = memory_->equal128(ex_mem_.fatptr, ex_mem_.vec_operand);
                 break;
             case SimdOpcode::FatptrLi:
-            case SimdOpcode::FatptrAdd4:
-            case SimdOpcode::FatptrSub4:
+            case SimdOpcode::FatptrAdd:
+            case SimdOpcode::FatptrSub:
                 next_mem_wb.fatptr_result = ex_mem_.fatptr_result;
                 break;
             case SimdOpcode::Jump:
@@ -455,13 +455,21 @@ void SimdCpu::tick() {
             case SimdOpcode::FatptrLi:
                 next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
                 break;
-            case SimdOpcode::FatptrAdd4:
-                next_ex_mem.fatptr_result = hmt_ex_.fatptr;
-                next_ex_mem.fatptr_result.offset += 4;
+            case SimdOpcode::FatptrAdd:
+                {
+                    auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
+                    int index = hmt_ex_.inst.mask & 0x3;
+                    next_ex_mem.fatptr_result = hmt_ex_.fatptr;
+                    next_ex_mem.fatptr_result.offset += static_cast<int32_t>(lane[index]);
+                }
                 break;
-            case SimdOpcode::FatptrSub4:
-                next_ex_mem.fatptr_result = hmt_ex_.fatptr;
-                next_ex_mem.fatptr_result.offset -= 4;
+            case SimdOpcode::FatptrSub:
+                {
+                    auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
+                    int index = hmt_ex_.inst.mask & 0x3;
+                    next_ex_mem.fatptr_result = hmt_ex_.fatptr;
+                    next_ex_mem.fatptr_result.offset -= static_cast<int32_t>(lane[index]);
+                }
                 break;
             case SimdOpcode::Nop:
                 break;
