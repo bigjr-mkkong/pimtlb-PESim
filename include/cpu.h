@@ -89,7 +89,7 @@ private:
     };
 
     bool uses_fatptr(const SimdInstruction &inst) const;
-    void validate_reg_index(int idx, size_t max, const char *name) const;
+    void validate_reg_index(int idx, size_t max, const char *err_msg) const;
 
     SimdMemory *memory_;
     std::vector<SimdInstruction> program_;

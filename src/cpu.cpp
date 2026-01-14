@@ -68,9 +68,9 @@ bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {
     return false;
 }
 
-void SimdCpu::validate_reg_index(int idx, size_t max, const char *name) const {
+void SimdCpu::validate_reg_index(int idx, size_t max, const char *err_msg) const {
     if (idx < 0 || static_cast<size_t>(idx) >= max) {
-        throw std::out_of_range(name);
+        throw std::out_of_range(err_msg);
     }
 }
 
