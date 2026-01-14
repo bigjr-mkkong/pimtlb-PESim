@@ -9,7 +9,7 @@ BUILD_DIR := build
 BIN_DIR   := bin
 
 # LIBPIMEVAL := ../PIM-AutoDSE/libpimeval/lib/libpimeval.a
-LIBPIMEVAL := ./lib/libpimeval.a
+# LIBPIMEVAL := ./lib/libpimeval.a
 
 # Target executable
 TARGET := $(BIN_DIR)/app
@@ -29,7 +29,7 @@ all: dirs $(TARGET)
 
 # Link the final executable
 $(TARGET): $(OBJS)
-	$(CXX) $(OBJS) $(LIBPIMEVAL) -o $@
+	$(CXX) $(OBJS) -o $@
 
 # Compile each .cpp → .o and produce .d dependency file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile

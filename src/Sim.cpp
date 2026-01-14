@@ -27,7 +27,6 @@ const SimdCpu &SimdSim::cpu() const {
     return cpu_;
 }
 
-SimdSim::SimdSim() : cpu_(&memory_) {}
 
 void SimdSim::add_region(uint32_t varidx, size_t size_bytes) {
     memory_.add_region(varidx, size_bytes);
@@ -36,16 +35,4 @@ void SimdSim::add_region(uint32_t varidx, size_t size_bytes) {
 void SimdSim::load_program(const std::vector<SimdInstruction> &program) {
     program_ = program;
     cpu_.load_program(program_);
-}
-
-void SimdSim::run(size_t max_cycles) {
-    cpu_.run(max_cycles);
-}
-
-SimdCpu &SimdSim::cpu() {
-    return cpu_;
-}
-
-const SimdCpu &SimdSim::cpu() const {
-    return cpu_;
 }

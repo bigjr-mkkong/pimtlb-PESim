@@ -5,17 +5,6 @@
 #include "HMT.h"
 #include <vector>
 
-class SimdSim {
-    SimdMemory memory_;
-    SimdCpu cpu_;
-    std::vector<SimdInstruction> program_;
-
-public:
-    SimdSim();
-    void run(size_t max_cycles);
-    SimdCpu &cpu();
-    const SimdCpu &cpu() const;
-};
 
 class SimdSim {
     SimdMemory memory_;
