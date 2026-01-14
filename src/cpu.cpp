@@ -363,6 +363,15 @@ void SimdCpu::tick() {
         }
         return vregs_[idx];
     };
+    auto is_mem_op = [](SimdOpcode opc) {
+        return opc == SimdOpcode::Ld128 || opc == SimdOpcode::St128 || opc == SimdOpcode::EqualExit;
+    };
+
+    bool mem_stall = false;
+    if (ex_mem_.valid && is_mem_op(ex_mem_.inst.opcode) && ex_mem_.mem_delay_remaining > 0) {
+        ex_mem_.mem_delay_remaining -= 1;
+        mem_stall = true;
+    }
 
     if (mem_wb_.valid) {
         const auto &inst = mem_wb_.inst;
@@ -394,21 +403,21 @@ void SimdCpu::tick() {
     }
 
     MemWb next_mem_wb{};
-    if (ex_mem_.valid) {
+    if (!mem_stall && ex_mem_.valid) {
         next_mem_wb.valid = true;
         next_mem_wb.inst = ex_mem_.inst;
         switch (ex_mem_.inst.opcode) {
             case SimdOpcode::Ld128:
-                next_mem_wb.vec_result = memory_->load128(ex_mem_.fatptr);
+                next_mem_wb.vec_result = memory_->load128(ex_mem_.phys_addr);
                 break;
             case SimdOpcode::St128:
-                memory_->store128(ex_mem_.fatptr, ex_mem_.vec_operand);
+                memory_->store128(ex_mem_.phys_addr, ex_mem_.vec_operand);
                 break;
             case SimdOpcode::Add128:
                 next_mem_wb.vec_result = ex_mem_.vec_result;
                 break;
             case SimdOpcode::EqualExit:
-                next_mem_wb.should_stop = memory_->equal128(ex_mem_.fatptr, ex_mem_.vec_operand);
+                next_mem_wb.should_stop = memory_->equal128(ex_mem_.phys_addr, ex_mem_.vec_operand);
                 break;
             case SimdOpcode::FatptrLi:
             case SimdOpcode::FatptrAdd:
@@ -422,10 +431,13 @@ void SimdCpu::tick() {
     }
 
     ExMem next_ex_mem{};
-    if (hmt_ex_.valid) {
+    if (mem_stall) {
+        next_ex_mem = ex_mem_;
+    } else if (hmt_ex_.valid) {
         next_ex_mem.valid = true;
         next_ex_mem.inst = hmt_ex_.inst;
         next_ex_mem.fatptr = hmt_ex_.fatptr;
+        next_ex_mem.phys_addr = hmt_ex_.phys_addr;
         switch (hmt_ex_.inst.opcode) {
             case SimdOpcode::Add128:
                 {
@@ -437,12 +449,15 @@ void SimdCpu::tick() {
                 }
                 break;
             case SimdOpcode::Ld128:
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr);
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr);
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr);
                 break;
             case SimdOpcode::Jump:
                 if (hmt_ex_.inst.imm < 0 ||
@@ -477,7 +492,9 @@ void SimdCpu::tick() {
     }
 
     HmtEx next_hmt_ex{};
-    if (id_hmt_.valid) {
+    if (mem_stall) {
+        next_hmt_ex = hmt_ex_;
+    } else if (id_hmt_.valid) {
         next_hmt_ex.valid = true;
         next_hmt_ex.inst = id_hmt_.inst;
         if (uses_fatptr(id_hmt_.inst)) {
@@ -495,17 +512,22 @@ void SimdCpu::tick() {
             if (!memory_->check_fatptr(next_hmt_ex.fatptr, kVectorBytes)) {
                 throw std::out_of_range("invalid fatptr in HMT stage");
             }
+            next_hmt_ex.phys_addr = memory_->translate_fatptr(next_hmt_ex.fatptr, kVectorBytes);
         }
     }
 
     IdHmt next_id_hmt{};
-    if (if_id_.valid) {
+    if (mem_stall) {
+        next_id_hmt = id_hmt_;
+    } else if (if_id_.valid) {
         next_id_hmt.valid = true;
         next_id_hmt.inst = if_id_.inst;
     }
 
     IfId next_if_id{};
-    if (!cpu_stop_) {
+    if (mem_stall) {
+        next_if_id = if_id_;
+    } else if (!cpu_stop_) {
         if (pc_ < program_.size()) {
             next_if_id.valid = true;
             next_if_id.pc = pc_;
@@ -516,7 +538,9 @@ void SimdCpu::tick() {
     }
 
     size_t next_pc = pc_;
-    if (ex_mem_.valid && ex_mem_.jump_taken) {
+    if (mem_stall) {
+        next_pc = pc_;
+    } else if (ex_mem_.valid && ex_mem_.jump_taken) {
         next_pc = ex_mem_.jump_target;
         next_if_id.valid = false;
     } else if (!cpu_stop_) {

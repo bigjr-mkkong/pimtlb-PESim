@@ -150,17 +150,20 @@ private:
         bool valid{false};
         SimdInstruction inst{};
         SimdFatptr fatptr{0, 0};
+        size_t phys_addr{0};
     };
 
     struct ExMem {
         bool valid{false};
         SimdInstruction inst{};
         SimdFatptr fatptr{0, 0};
+        size_t phys_addr{0};
         SimdFatptr fatptr_result{0, 0};
         std::array<uint32_t, 4> vec_result{};
         std::array<uint32_t, 4> vec_operand{};
         bool jump_taken{false};
         size_t jump_target{0};
+        size_t mem_delay_remaining{0};
     };
 
     struct MemWb {

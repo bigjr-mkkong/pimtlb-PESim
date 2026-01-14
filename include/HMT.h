@@ -60,12 +60,20 @@ class SimdMemory {
 public:
     void add_region(uint32_t varidx, size_t size_bytes);
     bool check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
-    std::array<uint32_t, 4> load128(const SimdFatptr &ptr) const;
-    void store128(const SimdFatptr &ptr, const std::array<uint32_t, 4> &value);
-    bool equal128(const SimdFatptr &ptr, const std::array<uint32_t, 4> &value) const;
+    size_t translate_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
+    std::array<uint32_t, 4> load128(size_t phys_addr) const;
+    void store128(size_t phys_addr, const std::array<uint32_t, 4> &value);
+    bool equal128(size_t phys_addr, const std::array<uint32_t, 4> &value) const;
+    size_t get_delay_cycl(size_t phys_addr) const;
 
 private:
-    std::unordered_map<uint32_t, std::vector<uint8_t>> regions_;
+    struct Region {
+        size_t base_addr;
+        std::vector<uint8_t> data;
+    };
+    const Region *find_region(size_t phys_addr) const;
+    Region *find_region(size_t phys_addr);
+    std::unordered_map<uint32_t, Region> regions_;
 };
 
 #endif
