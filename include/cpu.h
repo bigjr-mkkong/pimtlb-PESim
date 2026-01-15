@@ -43,6 +43,8 @@ public:
 
     SimdFatptr get_freg(size_t idx) const;
     void set_freg(size_t idx, const SimdFatptr &value);
+    void pause();
+    void resume();
 
 private:
     static constexpr size_t kVectorRegisters = 6;
@@ -96,6 +98,7 @@ private:
 
     size_t pc_{0};
     bool cpu_stop_{false};
+    bool cpu_pause_{false};
 
     std::array<std::array<uint32_t, 4>, kVectorRegisters> vregs_{};
     std::array<SimdFatptr, kFatptrRegisters> fregs_{};

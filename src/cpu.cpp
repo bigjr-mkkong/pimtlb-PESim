@@ -50,6 +50,16 @@ void SimdCpu::set_freg(size_t idx, const SimdFatptr &value) {
     fregs_[idx] = value;
 }
 
+void SimdCpu::pause(){
+    cpu_pause_ = true;
+}
+
+void SimdCpu::resume(){
+    if(!cpu_pause_)
+        throw std::logic_error("Cannot resume cpu when it's not paused");
+    cpu_pause_ = false;
+}
+
 bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {
     switch (inst.opcode) {
         case SimdOpcode::Ld128:
@@ -270,6 +280,9 @@ void SimdCpu::tick() {
     } else if (ex_mem_.valid && ex_mem_.jump_taken) {
         next_pc = ex_mem_.jump_target;
         next_if_id.valid = false;
+    } else if (cpu_pause_) {
+        next_pc = pc_;
+        next_if_id.valid = false;
     } else if (!cpu_stop_) {
         next_pc = pc_ + 1;
     }
@@ -285,6 +298,10 @@ void SimdCpu::tick() {
 void SimdCpu::run(size_t max_cycles) {
     for (size_t cycle = 0; cycle < max_cycles; ++cycle) {
         tick();
+
+        if(cycle == 20) pause();
+        if(cycle == 30) resume();
+
         if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
             break;
         }

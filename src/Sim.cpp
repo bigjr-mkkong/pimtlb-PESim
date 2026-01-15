@@ -1,9 +1,10 @@
 #include "Sim.h"
 
 SimdSim::SimdSim() : cpu_(&memory_) {
+    for(int i=0; i<100; i++)
     program_.push_back(SimdInstruction{
         SimdOpcode::Add128,
-        0,
+        1,
         1,
         2,
         -1,
