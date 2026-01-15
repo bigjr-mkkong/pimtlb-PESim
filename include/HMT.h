@@ -28,6 +28,7 @@ struct SimdFatptr {
 class SimdMemory {
 public:
     void add_region(uint32_t varidx, size_t size_bytes);
+    void fill_region(uint32_t varidx, const std::vector<uint8_t> &data);
     bool check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
     size_t translate_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
     std::array<uint32_t, 4> load128(size_t phys_addr) const;

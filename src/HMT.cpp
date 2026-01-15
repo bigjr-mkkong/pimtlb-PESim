@@ -38,6 +38,17 @@ void SimdMemory::add_region(uint32_t varidx, size_t size_bytes) {
     regions_[varidx] = Region{base_addr, std::vector<uint8_t>(size_bytes, 0)};
 }
 
+void SimdMemory::fill_region(uint32_t varidx, const std::vector<uint8_t> &src){
+    auto &region = regions_.at(varidx);
+
+    if(src.size() != region.data.size())
+        throw std::out_of_range(\
+                "fill_region() destination size should be the same as source");
+
+    region.data.assign(src.begin(), src.end());
+
+}
+
 bool SimdMemory::check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const {
     auto it = regions_.find(ptr.varidx);
     if (it == regions_.end()) {
