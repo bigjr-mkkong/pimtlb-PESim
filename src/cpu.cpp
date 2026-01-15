@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cassert>
 #include <stdexcept>
 #include "cpu.h"
@@ -51,13 +52,27 @@ void SimdCpu::set_freg(size_t idx, const SimdFatptr &value) {
 }
 
 void SimdCpu::pause(){
+    if(!cpu_ready4signal) {
+        std::cout<<"Pause failed because of timing violation, please try later"<<std::endl;
+        return;
+    }
+        
     cpu_pause_ = true;
+    hold_cntr = pre_pause_hold_cycl;
 }
 
 void SimdCpu::resume(){
     if(!cpu_pause_)
         throw std::logic_error("Cannot resume cpu when it's not paused");
+
+    if(!cpu_ready4signal) {
+        std::cout<<"resume failed because of timing violation, please try later"<<std::endl;
+        return;
+    }
+
     cpu_pause_ = false;
+    cpu_post_resume_delay = true;
+    hold_cntr = post_resume_hold_cycl;
 }
 
 bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {
@@ -283,6 +298,29 @@ void SimdCpu::tick() {
     } else if (cpu_pause_) {
         next_pc = pc_;
         next_if_id.valid = false;
+        cpu_ready4signal = true;
+
+        if (!if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
+            //hold for a while before get any signals
+            hold_cntr--;
+            if(hold_cntr >= 0) {
+                cpu_ready4signal = false;
+            }
+        } else {
+            cpu_ready4signal = false;
+        }
+    } else if (cpu_post_resume_delay) {
+        next_pc = pc_;
+        next_if_id.valid = false;
+
+        hold_cntr--;
+        if(hold_cntr <= 0) {
+            cpu_post_resume_delay = false;
+            cpu_ready4signal = true;
+        } else {
+            cpu_ready4signal = false;
+        }
+
     } else if (!cpu_stop_) {
         next_pc = pc_ + 1;
     }
@@ -300,7 +338,9 @@ void SimdCpu::run(size_t max_cycles) {
         tick();
 
         if(cycle == 20) pause();
-        if(cycle == 30) resume();
+        if(cycle == 40) resume();
+
+        // std::cout<<if_id_.valid << "|"<< id_hmt_.valid<<"|"<<hmt_ex_.valid<<"|"<<ex_mem_.valid<<"|"<<mem_wb_.valid<<"|"<<pc_<<std::endl;
 
         if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
             break;

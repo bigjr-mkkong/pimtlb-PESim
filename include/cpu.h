@@ -5,6 +5,9 @@
 #include <vector>
 #include "HMT.h"
 
+#define ROUND_UP(x, y) \
+    ((x) + (y) - 1) / (y);
+
 enum class SimdOpcode {
     Add128,
     Ld128,
@@ -50,6 +53,14 @@ private:
     static constexpr size_t kVectorRegisters = 6;
     static constexpr size_t kFatptrRegisters = 4;
     static constexpr size_t kVectorBytes = 16;
+
+    //Parameter comes from DDR4_4Gb_x16_2666
+    static constexpr int tCCD_S = 4;
+    static constexpr int tRP = 19;
+    static constexpr int tRAS = 43;
+    static constexpr int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
+    static constexpr int post_resume_hold_cycl = ROUND_UP(tRAS - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
+    
 
     struct IfId {
         bool valid{false};
@@ -97,8 +108,12 @@ private:
     std::vector<SimdInstruction> program_;
 
     size_t pc_{0};
+
+    int hold_cntr{0};
     bool cpu_stop_{false};
     bool cpu_pause_{false};
+    bool cpu_post_resume_delay{false};
+    bool cpu_ready4signal{true};
 
     std::array<std::array<uint32_t, 4>, kVectorRegisters> vregs_{};
     std::array<SimdFatptr, kFatptrRegisters> fregs_{};
