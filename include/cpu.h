@@ -54,12 +54,12 @@ private:
     static constexpr size_t kFatptrRegisters = 4;
     static constexpr size_t kVectorBytes = 16;
 
-    //Parameter comes from DDR4_4Gb_x16_2666
+    //Parameter comes from DDR4_4Gb_x16_3200
     static constexpr int tCCD_S = 4;
-    static constexpr int tRP = 19;
-    static constexpr int tRAS = 43;
+    static constexpr int tRP = 22;
+    static constexpr int tRCD = 22;
     static constexpr int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
-    static constexpr int post_resume_hold_cycl = ROUND_UP(tRAS - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
+    static constexpr int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
     
 
     struct IfId {
@@ -108,6 +108,7 @@ private:
     std::vector<SimdInstruction> program_;
 
     size_t pc_{0};
+    size_t cycl{0};
 
     int hold_cntr{0};
     bool cpu_stop_{false};

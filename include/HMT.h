@@ -25,6 +25,30 @@ struct SimdFatptr {
     int32_t offset;
 };
 
+class tiny_dram_bank{
+    public:
+        bool is_hit(size_t paddr);
+        bool is_first_access();
+        void update_last_read(size_t cycl);
+        void update_last_write(size_t cycl);
+        void update_last_act(size_t cycl);
+        int get_prec_delay(size_t cycl);
+    private:
+    const size_t rows = 65536;
+    const size_t columns = 1024;
+    const size_t BL = 8;
+    const size_t sz_per_row = columns * BL;
+
+    const int tRAS = 52; //minimun time between act and prec
+    const int tRTP = 12; //minimum time between read and prec
+    const int tWR = 24; //minimum time between write and prec
+
+    long long last_opened_row{-1};
+    size_t t_last_read{0};
+    size_t t_last_write{0};
+    size_t t_last_act{0};
+};
+
 class SimdMemory {
 public:
     void add_region(uint32_t varidx, size_t size_bytes);
@@ -34,7 +58,7 @@ public:
     std::array<uint32_t, 4> load128(size_t phys_addr) const;
     void store128(size_t phys_addr, const std::array<uint32_t, 4> &value);
     bool equal128(size_t phys_addr, const std::array<uint32_t, 4> &value) const;
-    size_t get_delay_cycl(size_t phys_addr) const;
+    size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl);
 
 private:
     struct Region {
@@ -44,6 +68,8 @@ private:
     const Region *find_region(size_t phys_addr) const;
     Region *find_region(size_t phys_addr);
     std::unordered_map<uint32_t, Region> regions_;
+
+    tiny_dram_bank dram_bank;
 };
 
 #endif

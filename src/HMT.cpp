@@ -101,7 +101,85 @@ bool SimdMemory::equal128(size_t phys_addr, const std::array<uint32_t, 4> &value
     return std::memcmp(region->data.data() + offset, value.data(), 16) == 0;
 }
 
-size_t SimdMemory::get_delay_cycl(size_t phys_addr) const {
-    (void)phys_addr;
+size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl) {
+    //pimPerfEnergyBank.cpp:1106 has the code
+    //AutoDSE use offline timing model, but I need online method
+    //I think it's better to borrow some basic functions like generateEvents/executeMemoryEvents, but write my own memory simulator
+    //This can be easy since we only care part of the parameter
+
+    /*
+     * things to mind in thie small timing model:
+     *  1. rowbuf hit/miss detection
+     *  2. prec cannot appear immediatly after act finished
+     */
+
+    bool hit = dram_bank.is_hit(phys_addr);
+    bool is_first = dram_bank.is_first_access();
+    int prec_delay_slot = dram_bank.get_prec_delay(cur_cycl);
+    
+    if(is_read) {
+        if(hit) {
+            // READ
+            dram_bank.update_last_read(cur_cycl);
+        } else if(is_first) {
+            // ACT-READ
+            int cycle_complete = cur_cycl + 0xdeadbeef;//use executeMemoryEvents to get cycles of read, replace "0xdeadbeef"
+            dram_bank.update_last_read(cycle_complete);
+        } else {
+            // add delay slot in PREC-READ event
+            // PREC-READ
+            int cycle_complete = cur_cycl + 0xdeadbeef;//use executeMemoryEvents to get cycles of read, replace "0xdeadbeef"
+            dram_bank.update_last_read(cycle_complete);
+        }
+    } else {
+
+        if(hit) {
+            // WRITE
+            dram_bank.update_last_write(cur_cycl);
+        } else if(is_first) {
+            // ACT-WRITE
+            int cycle_complete = cur_cycl + 0xdeadbeef;
+            dram_bank.update_last_write(cycle_complete);
+        } else {
+            //add delay slot in PREC-WRITE event(for precharge)
+            //PREC-WRITE
+            int cycle_complete = cur_cycl + 0xdeadbeef;
+            dram_bank.update_last_write(cycle_complete);
+        }
+    }
+
+
+    // execute single ev with executeMemoryEvent();
     return 0;
+}
+
+
+bool tiny_dram_bank::is_hit(size_t paddr){
+    long long row = paddr / sz_per_row;
+    if(row == last_opened_row) return true;
+    else {
+        last_opened_row = row;
+        return false;
+    }
+}
+void tiny_dram_bank::update_last_read(size_t cycl){
+    t_last_read = cycl;
+}
+void tiny_dram_bank::update_last_write(size_t cycl){
+    t_last_write = cycl;
+}
+void tiny_dram_bank::update_last_act(size_t cycl){
+    t_last_act = cycl;
+}
+bool tiny_dram_bank::is_first_access(){
+    return last_opened_row == -1;
+}
+int tiny_dram_bank::get_prec_delay(size_t cycl){
+    int max_delay = std::max({
+                        tRTP - (cycl - t_last_read),
+                        tWR - (cycl - t_last_write),
+                        tRAS - (cycl - t_last_act)
+    });
+
+    return std::max(max_delay, 0);
 }
