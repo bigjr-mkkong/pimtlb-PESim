@@ -113,6 +113,8 @@ private:
     int hold_cntr{0};
     bool cpu_stop_{false};
     bool cpu_pause_{false};
+    bool cpu_pause_pending_{false};
+    bool cpu_resume_pending_{false};
     bool cpu_post_resume_delay{false};
     bool cpu_ready4signal{true};
 

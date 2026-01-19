@@ -57,8 +57,7 @@ void SimdCpu::pause(){
         return;
     }
         
-    cpu_pause_ = true;
-    hold_cntr = pre_pause_hold_cycl;
+    cpu_pause_pending_ = true;
     cpu_ready4signal = false;
 }
 
@@ -71,9 +70,7 @@ void SimdCpu::resume(){
         return;
     }
 
-    cpu_pause_ = false;
-    cpu_post_resume_delay = true;
-    hold_cntr = post_resume_hold_cycl;
+    cpu_resume_pending_ = true;
     cpu_ready4signal = false;
 }
 
@@ -102,12 +99,13 @@ void SimdCpu::validate_reg_index(int idx, size_t max, const char *err_msg) const
 }
 
 void SimdCpu::tick() {
-    if (cpu_pause_ || cpu_post_resume_delay) {
+    bool freeze_pipeline = cpu_pause_ || cpu_post_resume_delay;
+    if (freeze_pipeline) {
         if (hold_cntr > 0) {
             hold_cntr--;
         }
         if (cpu_pause_) {
-            cpu_ready4signal = (hold_cntr <= 0);
+            cpu_ready4signal = (hold_cntr <= 0) && !cpu_resume_pending_;
         } else {
             if (hold_cntr <= 0) {
                 cpu_post_resume_delay = false;
@@ -116,216 +114,229 @@ void SimdCpu::tick() {
                 cpu_ready4signal = false;
             }
         }
-        return;
+    } else {
+        cpu_ready4signal = !cpu_pause_pending_;
     }
 
-    cpu_ready4signal = true;
-
-    auto resolve_vec_operand = [&](int idx) -> std::array<uint32_t, 4> {
-        validate_reg_index(idx, kVectorRegisters, "vector register out of range");
-        if (ex_mem_.valid && ex_mem_.inst.rd == idx) {
-            if (ex_mem_.inst.opcode == SimdOpcode::Add128) {
-                return ex_mem_.vec_result;
-            }
-        }
-        if (mem_wb_.valid && mem_wb_.inst.rd == idx) {
-            if (mem_wb_.inst.opcode == SimdOpcode::Add128 ||
-                mem_wb_.inst.opcode == SimdOpcode::Ld128) {
-                return mem_wb_.vec_result;
-            }
-        }
-        return vregs_[idx];
-    };
-    auto is_mem_op = [](SimdOpcode opc) {
-        return opc == SimdOpcode::Ld128 || opc == SimdOpcode::St128 || opc == SimdOpcode::EqualExit;
-    };
-
-    bool mem_stall = false;
-    if (ex_mem_.valid && is_mem_op(ex_mem_.inst.opcode) && ex_mem_.mem_delay_remaining > 0) {
-        ex_mem_.mem_delay_remaining -= 1;
-        mem_stall = true;
-    }
-
-    if (mem_wb_.valid) {
-        const auto &inst = mem_wb_.inst;
-        switch (inst.opcode) {
-            case SimdOpcode::Add128:
-                validate_reg_index(inst.rd, kVectorRegisters, "vector register out of range");
-                vregs_[inst.rd] = mem_wb_.vec_result;
-                break;
-            case SimdOpcode::Ld128:
-                validate_reg_index(inst.rd, kVectorRegisters, "vector register out of range");
-                vregs_[inst.rd] = mem_wb_.vec_result;
-                break;
-            case SimdOpcode::FatptrLi:
-            case SimdOpcode::FatptrAdd:
-            case SimdOpcode::FatptrSub:
-                validate_reg_index(inst.frd, kFatptrRegisters, "fatptr register out of range");
-                fregs_[inst.frd] = mem_wb_.fatptr_result;
-                break;
-            case SimdOpcode::EqualExit:
-                if (mem_wb_.should_stop) {
-                    cpu_stop_ = true;
+    if (!freeze_pipeline) {
+        auto resolve_vec_operand = [&](int idx) -> std::array<uint32_t, 4> {
+            validate_reg_index(idx, kVectorRegisters, "vector register out of range");
+            if (ex_mem_.valid && ex_mem_.inst.rd == idx) {
+                if (ex_mem_.inst.opcode == SimdOpcode::Add128) {
+                    return ex_mem_.vec_result;
                 }
-                break;
-            case SimdOpcode::St128:
-            case SimdOpcode::Jump:
-            case SimdOpcode::Nop:
-                break;
-        }
-    }
+            }
+            if (mem_wb_.valid && mem_wb_.inst.rd == idx) {
+                if (mem_wb_.inst.opcode == SimdOpcode::Add128 ||
+                    mem_wb_.inst.opcode == SimdOpcode::Ld128) {
+                    return mem_wb_.vec_result;
+                }
+            }
+            return vregs_[idx];
+        };
+        auto is_mem_op = [](SimdOpcode opc) {
+            return opc == SimdOpcode::Ld128 || opc == SimdOpcode::St128 || opc == SimdOpcode::EqualExit;
+        };
 
-    MemWb next_mem_wb{};
-    if (!mem_stall && ex_mem_.valid) {
-        next_mem_wb.valid = true;
-        next_mem_wb.inst = ex_mem_.inst;
-        switch (ex_mem_.inst.opcode) {
-            case SimdOpcode::Ld128:
-                next_mem_wb.vec_result = memory_->load128(ex_mem_.phys_addr);
-                break;
-            case SimdOpcode::St128:
-                memory_->store128(ex_mem_.phys_addr, ex_mem_.vec_operand);
-                break;
-            case SimdOpcode::Add128:
-                next_mem_wb.vec_result = ex_mem_.vec_result;
-                break;
-            case SimdOpcode::EqualExit:
-                next_mem_wb.should_stop = memory_->equal128(ex_mem_.phys_addr, ex_mem_.vec_operand);
-                break;
-            case SimdOpcode::FatptrLi:
-            case SimdOpcode::FatptrAdd:
-            case SimdOpcode::FatptrSub:
-                next_mem_wb.fatptr_result = ex_mem_.fatptr_result;
-                break;
-            case SimdOpcode::Jump:
-            case SimdOpcode::Nop:
-                break;
+        bool mem_stall = false;
+        if (ex_mem_.valid && is_mem_op(ex_mem_.inst.opcode) && ex_mem_.mem_delay_remaining > 0) {
+            ex_mem_.mem_delay_remaining -= 1;
+            mem_stall = true;
         }
-    }
 
-    ExMem next_ex_mem{};
-    if (mem_stall) {
-        next_ex_mem = ex_mem_;
-    } else if (hmt_ex_.valid) {
-        next_ex_mem.valid = true;
-        next_ex_mem.inst = hmt_ex_.inst;
-        next_ex_mem.fatptr = hmt_ex_.fatptr;
-        next_ex_mem.phys_addr = hmt_ex_.phys_addr;
-        switch (hmt_ex_.inst.opcode) {
-            case SimdOpcode::Add128:
-                {
-                    auto lhs = resolve_vec_operand(hmt_ex_.inst.rs1);
-                    auto rhs = resolve_vec_operand(hmt_ex_.inst.rs2);
-                    for (size_t i = 0; i < 4; ++i) {
-                        next_ex_mem.vec_result[i] = lhs[i] + rhs[i];
+        if (mem_wb_.valid) {
+            const auto &inst = mem_wb_.inst;
+            switch (inst.opcode) {
+                case SimdOpcode::Add128:
+                    validate_reg_index(inst.rd, kVectorRegisters, "vector register out of range");
+                    vregs_[inst.rd] = mem_wb_.vec_result;
+                    break;
+                case SimdOpcode::Ld128:
+                    validate_reg_index(inst.rd, kVectorRegisters, "vector register out of range");
+                    vregs_[inst.rd] = mem_wb_.vec_result;
+                    break;
+                case SimdOpcode::FatptrLi:
+                case SimdOpcode::FatptrAdd:
+                case SimdOpcode::FatptrSub:
+                    validate_reg_index(inst.frd, kFatptrRegisters, "fatptr register out of range");
+                    fregs_[inst.frd] = mem_wb_.fatptr_result;
+                    break;
+                case SimdOpcode::EqualExit:
+                    if (mem_wb_.should_stop) {
+                        cpu_stop_ = true;
                     }
-                }
-                break;
-            case SimdOpcode::Ld128:
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
-                break;
-            case SimdOpcode::St128:
-                next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
-                break;
-            case SimdOpcode::EqualExit:
-                next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
-                break;
-            case SimdOpcode::Jump:
-                if (hmt_ex_.inst.imm < 0 ||
-                    static_cast<size_t>(hmt_ex_.inst.imm) >= program_.size()) {
-                    throw std::out_of_range("jump target out of range");
-                }
-                next_ex_mem.jump_taken = true;
-                next_ex_mem.jump_target = static_cast<size_t>(hmt_ex_.inst.imm);
-                break;
-            case SimdOpcode::FatptrLi:
-                next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
-                break;
-            case SimdOpcode::FatptrAdd:
-                {
-                    auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
-                    int index = hmt_ex_.inst.mask & 0x3;
-                    next_ex_mem.fatptr_result = hmt_ex_.fatptr;
-                    next_ex_mem.fatptr_result.offset += static_cast<int32_t>(lane[index]);
-                }
-                break;
-            case SimdOpcode::FatptrSub:
-                {
-                    auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
-                    int index = hmt_ex_.inst.mask & 0x3;
-                    next_ex_mem.fatptr_result = hmt_ex_.fatptr;
-                    next_ex_mem.fatptr_result.offset -= static_cast<int32_t>(lane[index]);
-                }
-                break;
-            case SimdOpcode::Nop:
-                break;
+                    break;
+                case SimdOpcode::St128:
+                case SimdOpcode::Jump:
+                case SimdOpcode::Nop:
+                    break;
+            }
         }
-    }
 
-    HmtEx next_hmt_ex{};
-    if (mem_stall) {
-        next_hmt_ex = hmt_ex_;
-    } else if (id_hmt_.valid) {
-        next_hmt_ex.valid = true;
-        next_hmt_ex.inst = id_hmt_.inst;
-        if (uses_fatptr(id_hmt_.inst)) {
-            if (id_hmt_.inst.opcode == SimdOpcode::FatptrLi) {
-                next_hmt_ex.fatptr = id_hmt_.inst.fatptr_imm;
+        MemWb next_mem_wb{};
+        if (!mem_stall && ex_mem_.valid) {
+            next_mem_wb.valid = true;
+            next_mem_wb.inst = ex_mem_.inst;
+            switch (ex_mem_.inst.opcode) {
+                case SimdOpcode::Ld128:
+                    next_mem_wb.vec_result = memory_->load128(ex_mem_.phys_addr);
+                    break;
+                case SimdOpcode::St128:
+                    memory_->store128(ex_mem_.phys_addr, ex_mem_.vec_operand);
+                    break;
+                case SimdOpcode::Add128:
+                    next_mem_wb.vec_result = ex_mem_.vec_result;
+                    break;
+                case SimdOpcode::EqualExit:
+                    next_mem_wb.should_stop = memory_->equal128(ex_mem_.phys_addr, ex_mem_.vec_operand);
+                    break;
+                case SimdOpcode::FatptrLi:
+                case SimdOpcode::FatptrAdd:
+                case SimdOpcode::FatptrSub:
+                    next_mem_wb.fatptr_result = ex_mem_.fatptr_result;
+                    break;
+                case SimdOpcode::Jump:
+                case SimdOpcode::Nop:
+                    break;
+            }
+        }
+
+        ExMem next_ex_mem{};
+        if (mem_stall) {
+            next_ex_mem = ex_mem_;
+        } else if (hmt_ex_.valid) {
+            next_ex_mem.valid = true;
+            next_ex_mem.inst = hmt_ex_.inst;
+            next_ex_mem.fatptr = hmt_ex_.fatptr;
+            next_ex_mem.phys_addr = hmt_ex_.phys_addr;
+            switch (hmt_ex_.inst.opcode) {
+                case SimdOpcode::Add128:
+                    {
+                        auto lhs = resolve_vec_operand(hmt_ex_.inst.rs1);
+                        auto rhs = resolve_vec_operand(hmt_ex_.inst.rs2);
+                        for (size_t i = 0; i < 4; ++i) {
+                            next_ex_mem.vec_result[i] = lhs[i] + rhs[i];
+                        }
+                    }
+                    break;
+                case SimdOpcode::Ld128:
+                    next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                    break;
+                case SimdOpcode::St128:
+                    next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
+                    next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                    break;
+                case SimdOpcode::EqualExit:
+                    next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
+                    next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                    break;
+                case SimdOpcode::Jump:
+                    if (hmt_ex_.inst.imm < 0 ||
+                        static_cast<size_t>(hmt_ex_.inst.imm) >= program_.size()) {
+                        throw std::out_of_range("jump target out of range");
+                    }
+                    next_ex_mem.jump_taken = true;
+                    next_ex_mem.jump_target = static_cast<size_t>(hmt_ex_.inst.imm);
+                    break;
+                case SimdOpcode::FatptrLi:
+                    next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
+                    break;
+                case SimdOpcode::FatptrAdd:
+                    {
+                        auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
+                        int index = hmt_ex_.inst.mask & 0x3;
+                        next_ex_mem.fatptr_result = hmt_ex_.fatptr;
+                        next_ex_mem.fatptr_result.offset += static_cast<int32_t>(lane[index]);
+                    }
+                    break;
+                case SimdOpcode::FatptrSub:
+                    {
+                        auto lane = resolve_vec_operand(hmt_ex_.inst.rs1);
+                        int index = hmt_ex_.inst.mask & 0x3;
+                        next_ex_mem.fatptr_result = hmt_ex_.fatptr;
+                        next_ex_mem.fatptr_result.offset -= static_cast<int32_t>(lane[index]);
+                    }
+                    break;
+                case SimdOpcode::Nop:
+                    break;
+            }
+        }
+
+        HmtEx next_hmt_ex{};
+        if (mem_stall) {
+            next_hmt_ex = hmt_ex_;
+        } else if (id_hmt_.valid) {
+            next_hmt_ex.valid = true;
+            next_hmt_ex.inst = id_hmt_.inst;
+            if (uses_fatptr(id_hmt_.inst)) {
+                if (id_hmt_.inst.opcode == SimdOpcode::FatptrLi) {
+                    next_hmt_ex.fatptr = id_hmt_.inst.fatptr_imm;
+                } else {
+                    validate_reg_index(id_hmt_.inst.frs1, kFatptrRegisters, "fatptr register out of range");
+                    next_hmt_ex.fatptr = fregs_[id_hmt_.inst.frs1];
+                }
+            }
+
+            if (id_hmt_.inst.opcode == SimdOpcode::Ld128 ||
+                id_hmt_.inst.opcode == SimdOpcode::St128 ||
+                id_hmt_.inst.opcode == SimdOpcode::EqualExit) {
+                if (!memory_->check_fatptr(next_hmt_ex.fatptr, kVectorBytes)) {
+                    throw std::out_of_range("invalid fatptr in HMT stage");
+                }
+                next_hmt_ex.phys_addr = memory_->translate_fatptr(next_hmt_ex.fatptr, kVectorBytes);
+            }
+        }
+
+        IdHmt next_id_hmt{};
+        if (mem_stall) {
+            next_id_hmt = id_hmt_;
+        } else if (if_id_.valid) {
+            next_id_hmt.valid = true;
+            next_id_hmt.inst = if_id_.inst;
+        }
+
+        IfId next_if_id{};
+        if (mem_stall) {
+            next_if_id = if_id_;
+        } else if (!cpu_stop_) {
+            if (pc_ < program_.size()) {
+                next_if_id.valid = true;
+                next_if_id.pc = pc_;
+                next_if_id.inst = program_[pc_];
             } else {
-                validate_reg_index(id_hmt_.inst.frs1, kFatptrRegisters, "fatptr register out of range");
-                next_hmt_ex.fatptr = fregs_[id_hmt_.inst.frs1];
+                cpu_stop_ = true;
             }
         }
 
-        if (id_hmt_.inst.opcode == SimdOpcode::Ld128 ||
-            id_hmt_.inst.opcode == SimdOpcode::St128 ||
-            id_hmt_.inst.opcode == SimdOpcode::EqualExit) {
-            if (!memory_->check_fatptr(next_hmt_ex.fatptr, kVectorBytes)) {
-                throw std::out_of_range("invalid fatptr in HMT stage");
-            }
-            next_hmt_ex.phys_addr = memory_->translate_fatptr(next_hmt_ex.fatptr, kVectorBytes);
+        size_t next_pc = pc_;
+        if (mem_stall) {
+            next_pc = pc_;
+        } else if (ex_mem_.valid && ex_mem_.jump_taken) {
+            next_pc = ex_mem_.jump_target;
+            next_if_id.valid = false;
+        } else if (!cpu_stop_) {
+            next_pc = pc_ + 1;
         }
-    }
 
-    IdHmt next_id_hmt{};
-    if (mem_stall) {
-        next_id_hmt = id_hmt_;
-    } else if (if_id_.valid) {
-        next_id_hmt.valid = true;
-        next_id_hmt.inst = if_id_.inst;
+        if_id_ = next_if_id;
+        id_hmt_ = next_id_hmt;
+        hmt_ex_ = next_hmt_ex;
+        ex_mem_ = next_ex_mem;
+        mem_wb_ = next_mem_wb;
+        pc_ = next_pc;
     }
-
-    IfId next_if_id{};
-    if (mem_stall) {
-        next_if_id = if_id_;
-    } else if (!cpu_stop_) {
-        if (pc_ < program_.size()) {
-            next_if_id.valid = true;
-            next_if_id.pc = pc_;
-            next_if_id.inst = program_[pc_];
-        } else {
-            cpu_stop_ = true;
-        }
+    
+    if (cpu_pause_pending_) {
+        cpu_pause_ = true;
+        hold_cntr = pre_pause_hold_cycl;
+        cpu_pause_pending_ = false;
     }
-
-    size_t next_pc = pc_;
-    if (mem_stall) {
-        next_pc = pc_;
-    } else if (ex_mem_.valid && ex_mem_.jump_taken) {
-        next_pc = ex_mem_.jump_target;
-        next_if_id.valid = false;
-    } else if (!cpu_stop_) {
-        next_pc = pc_ + 1;
+    if (cpu_resume_pending_) {
+        cpu_pause_ = false;
+        cpu_post_resume_delay = true;
+        hold_cntr = post_resume_hold_cycl;
+        cpu_resume_pending_ = false;
     }
-
-    if_id_ = next_if_id;
-    id_hmt_ = next_id_hmt;
-    hmt_ex_ = next_hmt_ex;
-    ex_mem_ = next_ex_mem;
-    mem_wb_ = next_mem_wb;
-    pc_ = next_pc;
 }
 
 void SimdCpu::run(size_t max_cycles) {
