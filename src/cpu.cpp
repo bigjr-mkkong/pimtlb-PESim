@@ -186,6 +186,10 @@ void SimdCpu::tick() {
     if (mem_stall) {
         next_ex_mem = ex_mem_;
     } else if (hmt_ex_.valid) {
+        size_t pause_delay = 0;
+        if (cpu_pause_ && hold_cntr > 0) {
+            pause_delay = static_cast<size_t>(hold_cntr);
+        }
         next_ex_mem.valid = true;
         next_ex_mem.inst = hmt_ex_.inst;
         next_ex_mem.fatptr = hmt_ex_.fatptr;
@@ -201,15 +205,15 @@ void SimdCpu::tick() {
                 }
                 break;
             case SimdOpcode::Ld128:
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl, pause_delay);
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
                 break;
             case SimdOpcode::Jump:
                 if (hmt_ex_.inst.imm < 0 ||
@@ -336,10 +340,9 @@ void SimdCpu::tick() {
 void SimdCpu::run(size_t max_cycles) {
     for (size_t i = 0; i < max_cycles; ++i) {
         cycl = i;
-        tick();
-
         if(i == 20) pause();
         if(i == 40) resume();
+        tick();
 
         if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
             break;
