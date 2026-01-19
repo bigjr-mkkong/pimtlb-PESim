@@ -59,6 +59,7 @@ void SimdCpu::pause(){
         
     cpu_pause_ = true;
     hold_cntr = pre_pause_hold_cycl;
+    cpu_ready4signal = false;
 }
 
 void SimdCpu::resume(){
@@ -73,6 +74,7 @@ void SimdCpu::resume(){
     cpu_pause_ = false;
     cpu_post_resume_delay = true;
     hold_cntr = post_resume_hold_cycl;
+    cpu_ready4signal = false;
 }
 
 bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {
@@ -100,6 +102,25 @@ void SimdCpu::validate_reg_index(int idx, size_t max, const char *err_msg) const
 }
 
 void SimdCpu::tick() {
+    if (cpu_pause_ || cpu_post_resume_delay) {
+        if (hold_cntr > 0) {
+            hold_cntr--;
+        }
+        if (cpu_pause_) {
+            cpu_ready4signal = (hold_cntr <= 0);
+        } else {
+            if (hold_cntr <= 0) {
+                cpu_post_resume_delay = false;
+                cpu_ready4signal = true;
+            } else {
+                cpu_ready4signal = false;
+            }
+        }
+        return;
+    }
+
+    cpu_ready4signal = true;
+
     auto resolve_vec_operand = [&](int idx) -> std::array<uint32_t, 4> {
         validate_reg_index(idx, kVectorRegisters, "vector register out of range");
         if (ex_mem_.valid && ex_mem_.inst.rd == idx) {
@@ -295,32 +316,6 @@ void SimdCpu::tick() {
     } else if (ex_mem_.valid && ex_mem_.jump_taken) {
         next_pc = ex_mem_.jump_target;
         next_if_id.valid = false;
-    } else if (cpu_pause_) {
-        next_pc = pc_;
-        next_if_id.valid = false;
-        cpu_ready4signal = true;
-
-        if (!if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
-            //hold for a while before get any signals
-            hold_cntr--;
-            if(hold_cntr >= 0) {
-                cpu_ready4signal = false;
-            }
-        } else {
-            cpu_ready4signal = false;
-        }
-    } else if (cpu_post_resume_delay) {
-        next_pc = pc_;
-        next_if_id.valid = false;
-
-        hold_cntr--;
-        if(hold_cntr <= 0) {
-            cpu_post_resume_delay = false;
-            cpu_ready4signal = true;
-        } else {
-            cpu_ready4signal = false;
-        }
-
     } else if (!cpu_stop_) {
         next_pc = pc_ + 1;
     }
