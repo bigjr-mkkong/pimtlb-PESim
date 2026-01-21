@@ -186,7 +186,7 @@ void SimdCpu::tick() {
     if (mem_stall) {
         next_ex_mem = ex_mem_;
     } else if (hmt_ex_.valid) {
-        size_t pause_delay = 0;
+        size_t pause_delay = 0; // pause delay is the delay caused by PAUSE(switch row buffer), does not contain the delay to stop the pipeline
         if (cpu_pause_ && hold_cntr > 0) {
             pause_delay = static_cast<size_t>(hold_cntr);
         }

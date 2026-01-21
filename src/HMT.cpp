@@ -116,6 +116,8 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     bool hit = dram_bank.is_hit(phys_addr);
     bool is_first = dram_bank.is_first_access();
     int prec_delay_slot = dram_bank.get_prec_delay(cur_cycl);
+
+    size_t final_delay = 0, ddr_delay = 0;
     
     if(is_read) {
         if(hit) {
@@ -123,13 +125,13 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
             dram_bank.update_last_read(cur_cycl);
         } else if(is_first) {
             // ACT-READ
-            int cycle_complete = cur_cycl + 0xdeadbeef;//use executeMemoryEvents to get cycles of read, replace "0xdeadbeef"
-            dram_bank.update_last_read(cycle_complete);
+            ddr_delay =  0;//use executeMemoryEvents to get cycles of read, replace 0
+            dram_bank.update_last_read(cur_cycl + ddr_delay);
         } else {
             // add delay slot in PREC-READ event
             // PREC-READ
-            int cycle_complete = cur_cycl + 0xdeadbeef;//use executeMemoryEvents to get cycles of read, replace "0xdeadbeef"
-            dram_bank.update_last_read(cycle_complete);
+            ddr_delay =  0;//use executeMemoryEvents to get cycles of read, replace 0
+            dram_bank.update_last_read(cur_cycl + ddr_delay);
         }
     } else {
 
@@ -138,19 +140,20 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
             dram_bank.update_last_write(cur_cycl);
         } else if(is_first) {
             // ACT-WRITE
-            int cycle_complete = cur_cycl + 0xdeadbeef;
-            dram_bank.update_last_write(cycle_complete);
+            ddr_delay = 0;//use executeMemoryEvents to get cycles of read, replace 0
+            dram_bank.update_last_write(cur_cycl + ddr_delay);
         } else {
             //add delay slot in PREC-WRITE event(for precharge)
             //PREC-WRITE
-            int cycle_complete = cur_cycl + 0xdeadbeef;
-            dram_bank.update_last_write(cycle_complete);
+            ddr_delay = 0;
+            dram_bank.update_last_write(cur_cycl + ddr_delay);
         }
     }
 
 
+    final_delay = pause_delay + prec_delay_slot + ddr_delay;
     // execute single ev with executeMemoryEvent();
-    return pause_delay;
+    return final_delay;
 }
 
 
