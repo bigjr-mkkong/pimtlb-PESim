@@ -49,17 +49,21 @@ public:
     void pause();
     void resume();
 
+    void set_timing(int ccd, int rp, int rcd){
+        tCCD_S = ccd; tRP = rp; tRCD = rcd;
+    }
+
 private:
     static constexpr size_t kVectorRegisters = 6;
     static constexpr size_t kFatptrRegisters = 4;
     static constexpr size_t kVectorBytes = 16;
 
     //Parameter comes from DDR4_4Gb_x16_3200
-    static constexpr int tCCD_S = 4;
-    static constexpr int tRP = 22;
-    static constexpr int tRCD = 22;
-    static constexpr int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
-    static constexpr int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
+    int tCCD_S = 4;
+    int tRP = 22;
+    int tRCD = 22;
+    int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
+    int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
     
 
     struct IfId {

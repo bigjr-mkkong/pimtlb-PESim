@@ -25,11 +25,12 @@ DEPS := $(OBJS:.o=.d)
 
 .PHONY: all clean dirs
 
-all: dirs $(TARGET)
+# all: dirs $(TARGET)
+all: dirs $(OBJS)
 
 # Link the final executable
-$(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $@
+# $(TARGET): $(OBJS)
+# 	$(CXX) $(OBJS) -o $@
 
 # Compile each .cpp → .o and produce .d dependency file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile

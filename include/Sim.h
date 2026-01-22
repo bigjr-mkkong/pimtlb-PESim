@@ -18,6 +18,8 @@ public:
     void run(size_t max_cycles);
     SimdCpu &cpu();
     const SimdCpu &cpu() const;
+    SimdMemory &memory();
+    const SimdMemory &memory() const;
 };
 
 #endif

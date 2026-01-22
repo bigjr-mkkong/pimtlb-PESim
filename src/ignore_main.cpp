@@ -1,6 +1,7 @@
 #include <iostream>
 #include "Sim.h"
 
+#ifdef  MAIN_TEST
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -14,3 +15,4 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+#endif

@@ -3,11 +3,8 @@
 
 #include <array>
 #include <cstdint>
-#include <map>
-#include <memory>
 #include <unordered_map>
 #include <vector>
-#include "libpimeval.h"
 
 #define GETSET(T, N) \
   T get_##N() const { return N; };  \
@@ -33,15 +30,19 @@ class tiny_dram_bank{
         void update_last_write(size_t cycl);
         void update_last_act(size_t cycl);
         int get_prec_delay(size_t cycl);
+
+        void set_timing(int ras, int rtp, int wr){
+            tRAS = ras; tRTP = rtp; tWR = wr;
+        }
     private:
     const size_t rows = 65536;
     const size_t columns = 1024;
     const size_t BL = 8;
     const size_t sz_per_row = columns * BL;
 
-    const int tRAS = 52; //minimun time between act and prec
-    const int tRTP = 12; //minimum time between read and prec
-    const int tWR = 24; //minimum time between write and prec
+    int tRAS = 52; //minimun time between act and prec
+    int tRTP = 12; //minimum time between read and prec
+    int tWR = 24; //minimum time between write and prec
 
     long long last_opened_row{-1};
     size_t t_last_read{0};
