@@ -8,9 +8,6 @@ INC_DIR  := include
 BUILD_DIR := build
 BIN_DIR   := bin
 
-# LIBPIMEVAL := ../PIM-AutoDSE/libpimeval/lib/libpimeval.a
-# LIBPIMEVAL := ./lib/libpimeval.a
-
 # Target executable
 TARGET := $(BIN_DIR)/app
 
@@ -34,7 +31,7 @@ all: dirs $(OBJS)
 
 # Compile each .cpp → .o and produce .d dependency file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) -I$(INC_DIR) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Create directories if they don't exist
 dirs:
