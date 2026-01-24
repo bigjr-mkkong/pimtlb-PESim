@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX      := g++
-CXXFLAGS := -std=c++17 -g -Og -Wall -Iinclude
+CPPFLAGS := -std=c++17 -g -Og -Wall -Iinclude
 
 # Directories
 SRC_DIR  := src
@@ -34,7 +34,7 @@ all: dirs $(OBJS)
 
 # Compile each .cpp → .o and produce .d dependency file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile
-	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Create directories if they don't exist
 dirs:

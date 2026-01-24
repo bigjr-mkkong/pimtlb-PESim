@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Sim.h"
+#include "PESim.h"
 
 #ifdef  MAIN_TEST
 int main(int argc, char **argv) {

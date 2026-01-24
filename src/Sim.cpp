@@ -1,4 +1,4 @@
-#include "Sim.h"
+#include "PESim.h"
 
 SimdSim::SimdSim() : cpu_(&memory_) {
     for(int i=0; i<100; i++)
