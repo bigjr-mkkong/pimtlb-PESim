@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <iostream>
 #include <cassert>
 #include <stdexcept>
@@ -182,6 +183,7 @@ void SimdCpu::tick() {
         }
     }
 
+    int ddr_delay = 0;
     ExMem next_ex_mem{};
     if (mem_stall) {
         next_ex_mem = ex_mem_;
@@ -194,6 +196,7 @@ void SimdCpu::tick() {
         next_ex_mem.inst = hmt_ex_.inst;
         next_ex_mem.fatptr = hmt_ex_.fatptr;
         next_ex_mem.phys_addr = hmt_ex_.phys_addr;
+        
         switch (hmt_ex_.inst.opcode) {
             case SimdOpcode::Add128:
                 {
@@ -205,15 +208,19 @@ void SimdCpu::tick() {
                 }
                 break;
             case SimdOpcode::Ld128:
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
+                // next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl, pause_delay);
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::FatptrLi:
                 next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
@@ -236,6 +243,10 @@ void SimdCpu::tick() {
                 break;
             case SimdOpcode::Nop:
                 break;
+
+            default:
+                fprintf(stderr, "JUMP is not handled here\n");
+                exit(-1);
         }
     }
 

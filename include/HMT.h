@@ -59,7 +59,7 @@ public:
     std::array<uint32_t, 4> load128(size_t phys_addr) const;
     void store128(size_t phys_addr, const std::array<uint32_t, 4> &value);
     bool equal128(size_t phys_addr, const std::array<uint32_t, 4> &value) const;
-    size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl, size_t pause_delay);
+    size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl);
     tiny_dram_bank &bank_model();
 
 private:
