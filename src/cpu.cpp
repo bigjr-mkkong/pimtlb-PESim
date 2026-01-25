@@ -215,14 +215,6 @@ void SimdCpu::tick() {
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
                 next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
                 break;
-            case SimdOpcode::Jump:
-                if (hmt_ex_.inst.imm < 0 ||
-                    static_cast<size_t>(hmt_ex_.inst.imm) >= program_.size()) {
-                    throw std::out_of_range("jump target out of range");
-                }
-                next_ex_mem.jump_taken = true;
-                next_ex_mem.jump_target = static_cast<size_t>(hmt_ex_.inst.imm);
-                break;
             case SimdOpcode::FatptrLi:
                 next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
                 break;
@@ -250,6 +242,8 @@ void SimdCpu::tick() {
     HmtEx next_hmt_ex{};
     if (mem_stall) {
         next_hmt_ex = hmt_ex_;
+    } else if (id_hmt_.pend_cpu_stop) {
+        cpu_stop_ = true;
     } else if (id_hmt_.valid) {
         next_hmt_ex.valid = true;
         next_hmt_ex.inst = id_hmt_.inst;
@@ -273,14 +267,28 @@ void SimdCpu::tick() {
     }
 
     IdHmt next_id_hmt{};
+    bool id_jump_taken = false;
+    size_t id_jump_target = 0;
     if (mem_stall) {
         next_id_hmt = id_hmt_;
     } else if (if_id_.valid) {
-        next_id_hmt.valid = true;
-        next_id_hmt.inst = if_id_.inst;
+        if (if_id_.inst.opcode == SimdOpcode::Jump) {
+            if (if_id_.inst.imm < 0 ||
+                static_cast<size_t>(if_id_.inst.imm) >= program_.size()) {
+                throw std::out_of_range("jump target out of range");
+            }
+            id_jump_taken = true;
+            id_jump_target = static_cast<size_t>(if_id_.inst.imm);
+        } else {
+            next_id_hmt.valid = true;
+            next_id_hmt.inst = if_id_.inst;
+        }
+    } else if (if_id_.pend_cpu_stop) {
+        next_id_hmt.pend_cpu_stop = true;
     }
 
     IfId next_if_id{};
+    bool if_oob = false;
     if (mem_stall) {
         next_if_id = if_id_;
     } else if (!cpu_stop_) {
@@ -289,16 +297,20 @@ void SimdCpu::tick() {
             next_if_id.pc = pc_;
             next_if_id.inst = program_[pc_];
         } else {
-            cpu_stop_ = true;
+            next_if_id.pend_cpu_stop = true;
+            if_oob = true;
         }
     }
 
     size_t next_pc = pc_;
     if (mem_stall) {
         next_pc = pc_;
-    } else if (ex_mem_.valid && ex_mem_.jump_taken) {
-        next_pc = ex_mem_.jump_target;
+    } else if (id_jump_taken) {
+        next_pc = id_jump_target;
         next_if_id.valid = false;
+        next_if_id.pend_cpu_stop = false;
+    } else if (if_oob) {
+        next_pc = pc_;
     } else if (cpu_pause_) {
         next_pc = pc_;
         next_if_id.valid = false;
