@@ -156,6 +156,9 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     return final_delay;
 }
 
+tiny_dram_bank &SimdMemory::bank_model(){
+    return dram_bank;
+}
 
 bool tiny_dram_bank::is_hit(size_t paddr){
     long long row = paddr / sz_per_row;
