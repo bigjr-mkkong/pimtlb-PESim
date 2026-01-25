@@ -6,6 +6,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../../src/pimPerfEnergyBase.h""
+
 #define GETSET(T, N) \
   T get_##N() const { return N; };  \
   void set_##N(T x) { N = x; }
@@ -31,9 +33,12 @@ class tiny_dram_bank{
         void update_last_act(size_t cycl);
         int get_prec_delay(size_t cycl);
 
-        void set_timing(int ras, int rtp, int wr){
-            tRAS = ras; tRTP = rtp; tWR = wr;
+        void set_timing(int ras, int rtp, int wr, int rcdrd, int rp, int ccd_l){
+            tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDL = ccd_l;
         }
+        int executeMemoryEvent(pimeval::EventNode* ev, unsigned currCycle);
+
+
     private:
     const size_t rows = 65536;
     const size_t columns = 1024;
@@ -43,6 +48,9 @@ class tiny_dram_bank{
     int tRAS = 52; //minimun time between act and prec
     int tRTP = 12; //minimum time between read and prec
     int tWR = 24; //minimum time between write and prec
+    int tRCDRD = 22;
+    int tRP = 22;
+    int tCCDL = 8;
 
     long long last_opened_row{-1};
     size_t t_last_read{0};

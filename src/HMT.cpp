@@ -5,7 +5,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include "HMT.h"
-#include "libpimeval.h"
+// #include "libpimeval.h"
+
+// #include "../../src/pimSim.h"
+//
 
 const SimdMemory::Region *SimdMemory::find_region(size_t phys_addr) const {
     for (const auto &entry : regions_) {
@@ -101,7 +104,7 @@ bool SimdMemory::equal128(size_t phys_addr, const std::array<uint32_t, 4> &value
     return std::memcmp(region->data.data() + offset, value.data(), 16) == 0;
 }
 
-size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl, size_t pause_delay) {
+size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl) {
     //pimPerfEnergyBank.cpp:1106 has the code
     //AutoDSE use offline timing model, but I need online method
     //I think it's better to borrow some basic functions like generateEvents/executeMemoryEvents, but write my own memory simulator
@@ -113,47 +116,56 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
      *  2. prec cannot appear immediatly after act finished
      */
 
+    pimeval::EventNode *ev;
+
     bool hit = dram_bank.is_hit(phys_addr);
     bool is_first = dram_bank.is_first_access();
     int prec_delay_slot = dram_bank.get_prec_delay(cur_cycl);
 
-    size_t final_delay = 0, ddr_delay = 0;
+    size_t ddr_delay = 0;
     
     if(is_read) {
         if(hit) {
             // READ
+            ddr_delay = 0;
             dram_bank.update_last_read(cur_cycl);
         } else if(is_first) {
             // ACT-READ
-            ddr_delay =  0;//use executeMemoryEvents to get cycles of read, replace 0
+            ev = generateEvent(pimeval::EventType::ACTIVATE_READ, 0, 0, 0, 0, 0, 0, 0);
+            ddr_delay = dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
             dram_bank.update_last_read(cur_cycl + ddr_delay);
         } else {
             // add delay slot in PREC-READ event
             // PREC-READ
-            ddr_delay =  0;//use executeMemoryEvents to get cycles of read, replace 0
+            ev = generateEvent(pimeval::EventType::PRECHARGE_READ, 0, 0, 0, 0, 0, 0, 0);
+            ev->stalledCycle = prec_delay_slot;
+            ddr_delay =  dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
             dram_bank.update_last_read(cur_cycl + ddr_delay);
         }
     } else {
 
         if(hit) {
             // WRITE
+            ddr_delay = 0;
             dram_bank.update_last_write(cur_cycl);
         } else if(is_first) {
             // ACT-WRITE
-            ddr_delay = 0;//use executeMemoryEvents to get cycles of read, replace 0
+            ev = generateEvent(pimeval::EventType::ACTIVATE_WRITE, 0, 0, 0, 0, 0, 0, 0);
+            ddr_delay = dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
             dram_bank.update_last_write(cur_cycl + ddr_delay);
         } else {
             //add delay slot in PREC-WRITE event(for precharge)
             //PREC-WRITE
-            ddr_delay = 0;
+            ev = generateEvent(pimeval::EventType::PRECHARGE_WRITE, 0, 0, 0, 0, 0, 0, 0);
+            ev->stalledCycle = prec_delay_slot;
+            ddr_delay =  dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
             dram_bank.update_last_write(cur_cycl + ddr_delay);
         }
     }
 
 
-    final_delay = pause_delay + prec_delay_slot + ddr_delay;
     // execute single ev with executeMemoryEvent();
-    return final_delay;
+    return ddr_delay;
 }
 
 tiny_dram_bank &SimdMemory::bank_model(){
@@ -188,4 +200,43 @@ int tiny_dram_bank::get_prec_delay(size_t cycl){
     });
 
     return std::max(max_delay, 0);
+}
+
+int tiny_dram_bank::executeMemoryEvent(pimeval::EventNode* ev, unsigned currCycle){
+    int cycleRequired = 0;
+    switch (ev->type)
+    {
+    case pimeval::EventType::ACTIVATE_READ:
+    case pimeval::EventType::ACTIVATE_WRITE:
+    {  
+      ev->cycleCount = tRCDRD;
+      cycleRequired = tRCDRD;
+      break;
+    }
+    case pimeval::EventType::PRECHARGE_READ:
+    case pimeval::EventType::PRECHARGE_WRITE:
+    {
+      ev->cycleCount = tRP + ev->stalledCycle;
+      cycleRequired = tRP + ev->stalledCycle;
+      break;
+    }
+    case pimeval::EventType::READ_SRC1:
+    case pimeval::EventType::READ_SRC2:
+    case pimeval::EventType::READ_SCALAR:
+    {
+      ev->cycleCount = tCCDL; 
+      cycleRequired = tCCDL;
+      break;
+    }
+    case pimeval::EventType::WRITE_CHUNK:
+    {
+      ev->cycleCount = tCCDL;
+      cycleRequired = tCCDL;
+;
+      break;
+    }
+    default:
+      break;
+    }
+    return cycleRequired;
 }
