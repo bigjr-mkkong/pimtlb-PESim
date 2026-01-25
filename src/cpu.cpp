@@ -248,8 +248,8 @@ void SimdCpu::tick() {
                 break;
 
             default:
-                std::cerr<<"Undefined opcode in EX stage"<<std::endl;
-                exit(0);
+                fprintf(stderr, "JUMP is not handled here\n");
+                exit(-1);
         }
     }
 
