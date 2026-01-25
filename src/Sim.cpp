@@ -28,6 +28,13 @@ const SimdCpu &SimdSim::cpu() const {
     return cpu_;
 }
 
+SimdMemory &SimdSim::memory() {
+    return memory_;
+}
+
+const SimdMemory &SimdSim::memory() const {
+    return memory_;
+}
 
 void SimdSim::add_region(uint32_t varidx, size_t size_bytes) {
     memory_.add_region(varidx, size_bytes);
