@@ -6,11 +6,11 @@ int main(int argc, char **argv) {
     (void)argv;
 
     SimdSim sim;
-    sim.cpu().set_vreg(1, {1, 2, 3, 4});
-    sim.cpu().set_vreg(2, {10, 20, 30, 40});
-    sim.run(50);
+    sim.cpu().set_vreg(1, {0, 1, 2, 3});
+    sim.cpu().set_vreg(2, {1, 1, 1, 1});
+    sim.run(10);
     auto result = sim.cpu().get_vreg(1);
-    std::cout << "ADD result lane1: " << result[1] << std::endl;
+    std::cout << "ADD result lane1: " << result[0] << std::endl;
 
     return 0;
 }
