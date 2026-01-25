@@ -70,11 +70,13 @@ private:
         bool valid{false};
         size_t pc{0};
         SimdInstruction inst{};
+        bool pend_cpu_stop{false};
     };
 
     struct IdHmt {
         bool valid{false};
         SimdInstruction inst{};
+        bool pend_cpu_stop{false};
     };
 
     struct HmtEx {
@@ -92,8 +94,6 @@ private:
         SimdFatptr fatptr_result{0, 0};
         std::array<uint32_t, 4> vec_result{};
         std::array<uint32_t, 4> vec_operand{};
-        bool jump_taken{false};
-        size_t jump_target{0};
         size_t mem_delay_remaining{0};
     };
 
