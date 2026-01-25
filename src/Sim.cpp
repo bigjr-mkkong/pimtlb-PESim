@@ -19,7 +19,6 @@ SimdSim::SimdSim() : cpu_(&memory_) {
         .mask = 0,
         .fatptr_imm = {0, 0},
     });
-
     
     trace_.push(
         ext_sig_t{
