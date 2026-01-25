@@ -1,18 +1,25 @@
 #include "PESim.h"
 
 SimdSim::SimdSim() : cpu_(&memory_) {
-    for(int i=0; i<100; i++)
     program_.push_back(SimdInstruction{
-        SimdOpcode::Add128,
-        1,
-        1,
-        2,
-        -1,
-        -1,
-        0,
-        0,
-        SimdFatptr{0, 0},
+        .opcode = SimdOpcode::Add128,
+        .rd = 1,
+        .rs1 = 1,
+        .rs2 = 2,
+        .imm = 0,
+        .mask = 0,
+        .fatptr_imm = {0, 0},
     });
+    program_.push_back(SimdInstruction{
+        .opcode = SimdOpcode::Jump,
+        .rd = 0,
+        .rs1 = 0,
+        .rs2 = 0,
+        .imm = 0,
+        .mask = 0,
+        .fatptr_imm = {0, 0},
+    });
+
 }
 
 void SimdSim::run(size_t max_cycles) {
