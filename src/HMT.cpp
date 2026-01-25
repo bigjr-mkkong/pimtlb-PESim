@@ -173,7 +173,6 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
         if(hit) {
             // WRITE
             ddr_delay = 0;
-
             ev = generateEvent(pimeval::EventType::WRITE_CHUNK, 0, 0, 0, 0, 0, 0, 0);
             dram_bank.push_ddr(ev);
 
@@ -220,7 +219,12 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     }
 
 
+<<<<<<< HEAD
     return ddr_delay - 1 < 0?0:ddr_delay - 1;
+=======
+    // execute single ev with executeMemoryEvent();
+    return ddr_delay;
+>>>>>>> 68b267f (Add new memroyEvent handler for AutoDSE integration)
 }
 
 tiny_dram_bank &SimdMemory::bank_model(){
