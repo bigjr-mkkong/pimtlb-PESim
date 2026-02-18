@@ -20,10 +20,22 @@ SimdSim::SimdSim() : cpu_(&memory_) {
         .fatptr_imm = {0, 0},
     });
 
+    
+    trace_.push(
+        ext_sig_t{
+        .cmd = sig_cmd::PAUSE,
+        .time = 10
+    });
+    trace_.push(
+        ext_sig_t{
+        .cmd = sig_cmd::RESUME,
+        .time = 25
+    });
 }
 
 void SimdSim::run(size_t max_cycles) {
     cpu_.load_program(program_);
+    // cpu_.load_trace(trace_);
     cpu_.run(max_cycles);
 }
 
@@ -50,4 +62,9 @@ void SimdSim::add_region(uint32_t varidx, size_t size_bytes) {
 void SimdSim::load_program(const std::vector<SimdInstruction> &program) {
     program_ = program;
     cpu_.load_program(program_);
+}
+
+void SimdSim::load_trace(const std::priority_queue<ext_sig_t> &trace){
+    trace_ = trace;
+    cpu_.load_trace(trace_);
 }
