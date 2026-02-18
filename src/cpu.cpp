@@ -19,6 +19,10 @@ void SimdCpu::load_program(const std::vector<SimdInstruction> &program) {
     mem_wb_ = {};
 }
 
+void SimdCpu::load_trace(const std::priority_queue<ext_sig_t> &sig_trace){
+    traces_ = sig_trace;
+}
+
 bool SimdCpu::is_stopped() const {
     return cpu_stop_;
 }
@@ -194,6 +198,7 @@ void SimdCpu::tick() {
         next_ex_mem.inst = hmt_ex_.inst;
         next_ex_mem.fatptr = hmt_ex_.fatptr;
         next_ex_mem.phys_addr = hmt_ex_.phys_addr;
+        int ddr_delay = 0;
         switch (hmt_ex_.inst.opcode) {
             case SimdOpcode::Add128:
                 {
@@ -205,15 +210,20 @@ void SimdCpu::tick() {
                 }
                 break;
             case SimdOpcode::Ld128:
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl, pause_delay);
+
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                next_ex_mem.mem_delay_remaining = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl, pause_delay);
+
+                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
                 break;
             case SimdOpcode::FatptrLi:
                 next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
@@ -236,6 +246,10 @@ void SimdCpu::tick() {
                 break;
             case SimdOpcode::Nop:
                 break;
+
+            default:
+                std::cerr<<"Undefined opcode in EX stage"<<std::endl;
+                exit(0);
         }
     }
 
@@ -302,6 +316,7 @@ void SimdCpu::tick() {
         }
     }
 
+    std::cout<<"PC: "<<pc_<<std::endl;
     size_t next_pc = pc_;
     if (mem_stall) {
         next_pc = pc_;
@@ -350,12 +365,34 @@ void SimdCpu::tick() {
 }
 
 void SimdCpu::run(size_t max_cycles) {
-    for (size_t i = 0; i < max_cycles; ++i) {
-        cycl = i;
-        if(i == 20) pause();
-        if(i == 40) resume();
-        tick();
 
+    bool trace_flag = true;
+    if(traces_.empty()){
+       std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
+       trace_flag = false;
+    }
+
+
+    for (size_t i = 0; i < max_cycles; ++i) {
+        cycl = i;// This variable is for MEM stage delay calculation
+
+        if(trace_flag) {
+            ext_sig_t sig = traces_.top();
+            if(i == sig.time){
+                if(sig.cmd == PAUSE){
+                    std::cout<<"Pausing @ "<<i<<std::endl;
+                    pause();
+                }
+                else if(sig.cmd == RESUME){
+                    std::cout<<"Resuming @ "<<i<<std::endl;
+                    resume();
+                }
+
+                traces_.pop();
+            }
+        }
+
+        tick();
         if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
             break;
         }

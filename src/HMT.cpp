@@ -101,7 +101,7 @@ bool SimdMemory::equal128(size_t phys_addr, const std::array<uint32_t, 4> &value
     return std::memcmp(region->data.data() + offset, value.data(), 16) == 0;
 }
 
-size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl, size_t pause_delay) {
+size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl) {
     //pimPerfEnergyBank.cpp:1106 has the code
     //AutoDSE use offline timing model, but I need online method
     //I think it's better to borrow some basic functions like generateEvents/executeMemoryEvents, but write my own memory simulator
@@ -151,9 +151,13 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     }
 
 
-    final_delay = pause_delay + prec_delay_slot + ddr_delay;
+    final_delay = prec_delay_slot + ddr_delay;
     // execute single ev with executeMemoryEvent();
-    return final_delay;
+
+
+
+    // return final_delay;
+    return 0;
 }
 
 

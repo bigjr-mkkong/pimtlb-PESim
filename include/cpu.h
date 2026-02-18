@@ -3,7 +3,9 @@
 
 #include <array>
 #include <vector>
+#include <queue>
 #include "HMT.h"
+#include "ext_sig.h"
 
 #define ROUND_UP(x, y) \
     ((x) + (y) - 1) / (y);
@@ -37,6 +39,7 @@ public:
     explicit SimdCpu(SimdMemory *memory);
 
     void load_program(const std::vector<SimdInstruction> &program);
+    void load_trace(const std::priority_queue<ext_sig_t> &sig_trace);
     void tick();
     void run(size_t max_cycles);
     bool is_stopped() const;
@@ -58,8 +61,13 @@ private:
     static constexpr int tCCD_S = 4;
     static constexpr int tRP = 22;
     static constexpr int tRCD = 22;
-    static constexpr int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
-    static constexpr int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
+    /*
+     * We are simulating a naive DRAM behavior
+     * pre_pause_hold_cycl is the time taken by PREC
+     * post_resume_hold_cycl is the time taken by ACT
+     */
+    static constexpr int pre_pause_hold_cycl = ROUND_UP(tRP, tCCD_S); //tRP
+    static constexpr int post_resume_hold_cycl = ROUND_UP(tRCD, tCCD_S); //tRCD
     
 
     struct IfId {
@@ -106,6 +114,7 @@ private:
 
     SimdMemory *memory_;
     std::vector<SimdInstruction> program_;
+    std::priority_queue<ext_sig_t> traces_;
 
     size_t pc_{0};
     size_t cycl{0};
