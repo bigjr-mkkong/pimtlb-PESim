@@ -4,7 +4,9 @@
 #include "configs.h"
 #include <array>
 #include <vector>
+#include <queue>
 #include "HMT.h"
+#include "ext_sig.h"
 
 #define ROUND_UP(x, y) \
     ((x) + (y) - 1) / (y);
@@ -38,6 +40,7 @@ public:
     explicit SimdCpu(SimdMemory *memory);
 
     void load_program(const std::vector<SimdInstruction> &program);
+    void load_trace(const std::priority_queue<ext_sig_t> &sig_trace);
     void tick();
     void run(size_t max_cycles);
     bool is_stopped() const;
@@ -111,6 +114,7 @@ private:
 
     SimdMemory *memory_;
     std::vector<SimdInstruction> program_;
+    std::priority_queue<ext_sig_t> traces_;
 
     size_t pc_{0};
     size_t cycl{0};
