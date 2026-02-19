@@ -20,8 +20,8 @@ void SimdCpu::load_program(const std::vector<SimdInstruction> &program) {
     mem_wb_ = {};
 }
 
-void SimdCpu::load_trace(const std::priority_queue<ext_sig_t> &sig_trace){
-    traces_ = sig_trace;
+void SimdCpu::load_trace(const std::priority_queue<trace_ent_t> &trace){
+    traces_ = trace;
 }
 
 bool SimdCpu::is_stopped() const {
@@ -365,7 +365,6 @@ void SimdCpu::tick() {
 }
 
 void SimdCpu::run(size_t max_cycles) {
-
     bool trace_flag = true;
     if(traces_.empty()){
        std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
@@ -377,13 +376,13 @@ void SimdCpu::run(size_t max_cycles) {
         cycl = i;// This variable is for MEM stage delay calculation
 
         if(trace_flag) {
-            ext_sig_t sig = traces_.top();
-            if(i == sig.time){
-                if(sig.cmd == PAUSE){
+            trace_ent_t tr = traces_.top();
+            if(i == tr.time){
+                if(tr.op == PAUSE){
                     std::cout<<"Pausing @ "<<i<<std::endl;
                     pause();
                 }
-                else if(sig.cmd == RESUME){
+                else if(tr.op == RESUME){
                     std::cout<<"Resuming @ "<<i<<std::endl;
                     resume();
                 }

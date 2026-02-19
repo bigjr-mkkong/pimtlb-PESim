@@ -1,4 +1,5 @@
 #include "PESim.h"
+#include <queue>
 
 SimdSim::SimdSim() : cpu_(&memory_) {
     program_.push_back(SimdInstruction{
@@ -56,7 +57,7 @@ void SimdSim::load_program(const std::vector<SimdInstruction> &program) {
     cpu_.load_program(program_);
 }
 
-void SimdSim::load_trace(const std::priority_queue<ext_sig_t> &trace){
-    trace_ = trace;
-    cpu_.load_trace(trace_);
+void SimdSim::load_trace(const std::priority_queue<trace_ent_t> &traces) {
+    traces_ = traces;
+    cpu_.load_trace(traces_);
 }
