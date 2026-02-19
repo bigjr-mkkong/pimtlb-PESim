@@ -1,6 +1,7 @@
 #ifndef __CPU__H__
 #define __CPU__H__
 
+#include "configs.h"
 #include <array>
 #include <vector>
 #include "HMT.h"
@@ -8,29 +9,29 @@
 #define ROUND_UP(x, y) \
     ((x) + (y) - 1) / (y);
 
-enum class SimdOpcode {
-    Add128,
-    Ld128,
-    St128,
-    Jump,
-    EqualExit,
-    FatptrLi,
-    FatptrAdd,
-    FatptrSub,
-    Nop,
-};
+// enum class SimdOpcode {
+//     Add128,
+//     Ld128,
+//     St128,
+//     Jump,
+//     EqualExit,
+//     FatptrLi,
+//     FatptrAdd,
+//     FatptrSub,
+//     Nop,
+// };
 
-struct SimdInstruction {
-    SimdOpcode opcode{SimdOpcode::Nop};
-    int rd{-1};
-    int rs1{-1};
-    int rs2{-1};
-    int frd{-1};
-    int frs1{-1};
-    int imm{0};
-    int mask{0};
-    SimdFatptr fatptr_imm{0, 0};
-};
+// struct SimdInstruction {
+//     SimdOpcode opcode{SimdOpcode::Nop};
+//     int rd{-1};
+//     int rs1{-1};
+//     int rs2{-1};
+//     int frd{-1};
+//     int frs1{-1};
+//     int imm{0};
+//     int mask{0};
+//     SimdFatptr fatptr_imm{0, 0};
+// };
 
 class SimdCpu {
 public:
@@ -63,7 +64,7 @@ private:
     int tRP = 22;
     int tRCD = 22;
     int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
-    int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDLs
+    int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDSs
     
 
     struct IfId {

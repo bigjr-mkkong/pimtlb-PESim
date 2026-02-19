@@ -19,7 +19,10 @@ SimdSim::SimdSim() : cpu_(&memory_) {
         .mask = 0,
         .fatptr_imm = {0, 0},
     });
+}
 
+bool SimdSim::empty_program(){
+    return program_.empty();
 }
 
 void SimdSim::run(size_t max_cycles) {

@@ -1,13 +1,15 @@
 #ifndef __HMT_H__
 #define __HMT_H__
 
+#include "configs.h"
+
 #include <array>
 #include <cstdint>
 #include <queue>
 #include <unordered_map>
 #include <vector>
 
-#include "../../src/pimPerfEnergyBase.h""
+#include "../../src/pimPerfEnergyBase.h"
 
 #define GETSET(T, N) \
   T get_##N() const { return N; };  \
@@ -20,10 +22,6 @@ enum HMT_flag_t{
     NA,
 };
 
-struct SimdFatptr {
-    uint32_t varidx;
-    int32_t offset;
-};
 
 class tiny_dram_bank{
     public:
@@ -38,8 +36,8 @@ class tiny_dram_bank{
         void push_ddr(pimeval::EventNode *ev);
 
         void set_timing(int ras, int rtp, int wr, int rcdrd,\
-                int rp, int ccd_l, int sa_sel, int wtr){
-            tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDL = ccd_l;
+                int rp, int ccd_s, int sa_sel, int wtr){
+            tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDS = ccd_s;
             tSA_SEL = sa_sel; tWTR = wtr;
         }
         int executeMemoryEvent(size_t currCycle);
@@ -59,9 +57,14 @@ class tiny_dram_bank{
     int tWTR = 3; //minimum time of write after read delay
     int tRCDRD = 22;
     int tRP = 22;
-    int tCCDL = 8;
+    int tCCDS = 4;
 
-    int tSA_SEL = 4;
+    int tSA_SEL = 3;
+
+    int tRP_FAST = 12;
+    int tISO = 2;
+    int tWR_FAST = 12;
+    int tWTR_FAST = 0;
 
     // long long last_opened_row{-1};
     size_t t_last_read{0};
