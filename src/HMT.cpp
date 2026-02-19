@@ -219,12 +219,7 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     }
 
 
-<<<<<<< HEAD
     return ddr_delay - 1 < 0?0:ddr_delay - 1;
-=======
-    // execute single ev with executeMemoryEvent();
-    return ddr_delay;
->>>>>>> 68b267f (Add new memroyEvent handler for AutoDSE integration)
 }
 
 tiny_dram_bank &SimdMemory::bank_model(){

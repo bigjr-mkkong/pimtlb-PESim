@@ -21,6 +21,7 @@ public:
     void load_program(const std::vector<SimdInstruction> &program);
     bool empty_program();
     void load_trace(const std::priority_queue<ext_sig_t> &trace);
+    bool empty_program();
     void run(size_t max_cycles);
     SimdCpu &cpu();
     const SimdCpu &cpu() const;
