@@ -316,7 +316,7 @@ void SimdCpu::tick() {
         }
     }
 
-    std::cout<<"PC: "<<pc_<<std::endl;
+    // std::cout<<"PC: "<<pc_<<std::endl;
     size_t next_pc = pc_;
     if (mem_stall) {
         next_pc = pc_;

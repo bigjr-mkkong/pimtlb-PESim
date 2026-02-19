@@ -11,30 +11,6 @@
 #define ROUND_UP(x, y) \
     ((x) + (y) - 1) / (y);
 
-// enum class SimdOpcode {
-//     Add128,
-//     Ld128,
-//     St128,
-//     Jump,
-//     EqualExit,
-//     FatptrLi,
-//     FatptrAdd,
-//     FatptrSub,
-//     Nop,
-// };
-
-// struct SimdInstruction {
-//     SimdOpcode opcode{SimdOpcode::Nop};
-//     int rd{-1};
-//     int rs1{-1};
-//     int rs2{-1};
-//     int frd{-1};
-//     int frs1{-1};
-//     int imm{0};
-//     int mask{0};
-//     SimdFatptr fatptr_imm{0, 0};
-// };
-
 class SimdCpu {
 public:
     explicit SimdCpu(SimdMemory *memory);
