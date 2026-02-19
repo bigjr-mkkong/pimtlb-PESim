@@ -119,52 +119,73 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     pimeval::EventNode *ev;
 
     bool hit = dram_bank.is_hit(phys_addr);
-    bool is_first = dram_bank.is_first_access();
-    int prec_delay_slot = dram_bank.get_prec_delay(cur_cycl);
-
+    bool is_active = dram_bank.is_active(phys_addr);
+    dram_bank.update_hit(phys_addr);
     size_t ddr_delay = 0;
     
     if(is_read) {
         if(hit) {
             // READ
-            ddr_delay = 0;
-            dram_bank.update_last_read(cur_cycl);
-        } else if(is_first) {
+            ev = generateEvent(pimeval::EventType::READ_SRC1, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
+
+        } else if(!is_active) {
             // ACT-READ
-            ev = generateEvent(pimeval::EventType::ACTIVATE_READ, 0, 0, 0, 0, 0, 0, 0);
-            ddr_delay = dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
-            dram_bank.update_last_read(cur_cycl + ddr_delay);
+            dram_bank.push_ddr(generateEvent(pimeval::EventType::ACTIVATE_READ, 0, 0, 0, 0, 0, 0, 0));
+            ev = generateEvent(pimeval::EventType::READ_SRC1, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
+
         } else {
             // add delay slot in PREC-READ event
             // PREC-READ
             ev = generateEvent(pimeval::EventType::PRECHARGE_READ, 0, 0, 0, 0, 0, 0, 0);
-            ev->stalledCycle = prec_delay_slot;
-            ddr_delay =  dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
-            dram_bank.update_last_read(cur_cycl + ddr_delay);
+            dram_bank.push_ddr(ev);
+
+            ev = generateEvent(pimeval::EventType::ACTIVATE_READ, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ev = generateEvent(pimeval::EventType::READ_SRC1, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
         }
     } else {
 
         if(hit) {
             // WRITE
             ddr_delay = 0;
-            dram_bank.update_last_write(cur_cycl);
-        } else if(is_first) {
+
+            ev = generateEvent(pimeval::EventType::WRITE_CHUNK, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
+        } else if(!is_active) {
             // ACT-WRITE
-            ev = generateEvent(pimeval::EventType::ACTIVATE_WRITE, 0, 0, 0, 0, 0, 0, 0);
-            ddr_delay = dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
-            dram_bank.update_last_write(cur_cycl + ddr_delay);
+            ddr_delay = 0;
+            dram_bank.push_ddr(generateEvent(pimeval::EventType::ACTIVATE_READ, 0, 0, 0, 0, 0, 0, 0));
+            ev = generateEvent(pimeval::EventType::WRITE_CHUNK, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
         } else {
-            //add delay slot in PREC-WRITE event(for precharge)
             //PREC-WRITE
             ev = generateEvent(pimeval::EventType::PRECHARGE_WRITE, 0, 0, 0, 0, 0, 0, 0);
-            ev->stalledCycle = prec_delay_slot;
-            ddr_delay =  dram_bank.executeMemoryEvent(ev, cur_cycl);//use executeMemoryEvents to get cycles of read, replace 0
-            dram_bank.update_last_write(cur_cycl + ddr_delay);
+            dram_bank.push_ddr(ev);
+
+            ev = generateEvent(pimeval::EventType::ACTIVATE_WRITE, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ev = generateEvent(pimeval::EventType::WRITE_CHUNK, 0, 0, 0, 0, 0, 0, 0);
+            dram_bank.push_ddr(ev);
+
+            ddr_delay = dram_bank.executeMemoryEvent(cur_cycl);
         }
     }
 
 
-    // execute single ev with executeMemoryEvent();
     return ddr_delay;
 }
 
@@ -173,70 +194,103 @@ tiny_dram_bank &SimdMemory::bank_model(){
 }
 
 bool tiny_dram_bank::is_hit(size_t paddr){
-    long long row = paddr / sz_per_row;
-    if(row == last_opened_row) return true;
+    size_t SA = paddr / sz_per_SA;
+    size_t row = (paddr%sz_per_SA) / sz_per_row;
+    if(sa_sel_table[SA] == row) return true;
     else {
-        last_opened_row = row;
+        sa_sel_table[SA] = row;
         return false;
     }
 }
-void tiny_dram_bank::update_last_read(size_t cycl){
-    t_last_read = cycl;
+void tiny_dram_bank::update_hit(size_t paddr){
+    size_t SA = paddr / sz_per_SA;
+    size_t row = (paddr%sz_per_SA) / sz_per_row;
+    sa_sel_table[SA] = row;
+    
+    return;
 }
-void tiny_dram_bank::update_last_write(size_t cycl){
-    t_last_write = cycl;
-}
-void tiny_dram_bank::update_last_act(size_t cycl){
-    t_last_act = cycl;
-}
-bool tiny_dram_bank::is_first_access(){
-    return last_opened_row == -1;
+bool tiny_dram_bank::is_active(size_t paddr){
+    size_t SA = paddr / sz_per_SA;
+    size_t row = (paddr%sz_per_SA) / sz_per_row;
+    return sa_sel_table[SA] == -1;
 }
 int tiny_dram_bank::get_prec_delay(size_t cycl){
     int max_delay = std::max({
                         tRTP - (cycl - t_last_read),
-                        tWR - (cycl - t_last_write),
                         tRAS - (cycl - t_last_act)
     });
 
     return std::max(max_delay, 0);
 }
 
-int tiny_dram_bank::executeMemoryEvent(pimeval::EventNode* ev, unsigned currCycle){
-    int cycleRequired = 0;
-    switch (ev->type)
-    {
-    case pimeval::EventType::ACTIVATE_READ:
-    case pimeval::EventType::ACTIVATE_WRITE:
-    {  
-      ev->cycleCount = tRCDRD;
-      cycleRequired = tRCDRD;
-      break;
+int tiny_dram_bank::get_rd_delay(size_t cycl){
+    int max_delay = tWTR - (cycl - t_last_write);
+
+    return std::max(max_delay, 0);
+}
+
+int tiny_dram_bank::get_wr_delay(size_t cycl){
+    int max_delay = tWR - (cycl - t_last_write);
+
+    return std::max(max_delay, 0);
+}
+
+void tiny_dram_bank::push_ddr(pimeval::EventNode *ev){
+    ddr_events.push(*ev);
+
+    return;
+}
+
+int tiny_dram_bank::executeMemoryEvent(size_t currCycle){
+    int total_cycle_required = 0, single_cycle_required = 0;
+
+    size_t sim_cycl = currCycle; 
+    while(!ddr_events.empty()){
+        pimeval::EventNode ev = ddr_events.front();
+        ddr_events.pop();
+
+        switch (ev.type)
+        {
+        case pimeval::EventType::ACTIVATE_READ:
+        case pimeval::EventType::ACTIVATE_WRITE:
+        {  
+            ev.stalledCycle = 0;
+            ev.cycleCount = tRCDRD;
+            single_cycle_required = tRCDRD;
+            t_last_act = sim_cycl + single_cycle_required;
+            break;
+        }
+        case pimeval::EventType::PRECHARGE_READ:
+        case pimeval::EventType::PRECHARGE_WRITE:
+        {
+            ev.stalledCycle = get_prec_delay(sim_cycl);
+            ev.cycleCount = tRP + ev.stalledCycle;
+            single_cycle_required = tRP + ev.stalledCycle;
+            break;
+        }
+        case pimeval::EventType::READ_SRC1:
+        case pimeval::EventType::READ_SRC2:
+        case pimeval::EventType::READ_SCALAR:
+        {
+            ev.stalledCycle = get_rd_delay(sim_cycl);
+            ev.cycleCount = tCCDL + ev.stalledCycle; 
+            single_cycle_required = tCCDL + ev.stalledCycle;
+            t_last_read = sim_cycl + single_cycle_required;
+            break;
+        }
+        case pimeval::EventType::WRITE_CHUNK:
+        {
+            ev.stalledCycle = get_wr_delay(sim_cycl);
+            ev.cycleCount = tCCDL + ev.stalledCycle;
+            single_cycle_required = tCCDL + ev.stalledCycle;
+            t_last_write = sim_cycl + single_cycle_required;
+            break;
+        }
+        default:
+            break;
+        }
+        total_cycle_required += single_cycle_required;
+        sim_cycl += single_cycle_required;
     }
-    case pimeval::EventType::PRECHARGE_READ:
-    case pimeval::EventType::PRECHARGE_WRITE:
-    {
-      ev->cycleCount = tRP + ev->stalledCycle;
-      cycleRequired = tRP + ev->stalledCycle;
-      break;
-    }
-    case pimeval::EventType::READ_SRC1:
-    case pimeval::EventType::READ_SRC2:
-    case pimeval::EventType::READ_SCALAR:
-    {
-      ev->cycleCount = tCCDL; 
-      cycleRequired = tCCDL;
-      break;
-    }
-    case pimeval::EventType::WRITE_CHUNK:
-    {
-      ev->cycleCount = tCCDL;
-      cycleRequired = tCCDL;
-;
-      break;
-    }
-    default:
-      break;
-    }
-    return cycleRequired;
+    return total_cycle_required;
 }

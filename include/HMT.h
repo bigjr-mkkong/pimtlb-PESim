@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <queue>
 #include <unordered_map>
 #include <vector>
 
@@ -27,35 +28,48 @@ struct SimdFatptr {
 class tiny_dram_bank{
     public:
         bool is_hit(size_t paddr);
-        bool is_first_access();
-        void update_last_read(size_t cycl);
-        void update_last_write(size_t cycl);
-        void update_last_act(size_t cycl);
-        int get_prec_delay(size_t cycl);
+        void update_hit(size_t paddr);
+        bool is_active(size_t paddr);
 
-        void set_timing(int ras, int rtp, int wr, int rcdrd, int rp, int ccd_l){
+        int get_prec_delay(size_t cycl);
+        int get_rd_delay(size_t cycl);
+        int get_wr_delay(size_t cycl);
+
+        void push_ddr(pimeval::EventNode *ev);
+
+        void set_timing(int ras, int rtp, int wr, int rcdrd,\
+                int rp, int ccd_l, int sa_sel, int wtr){
             tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDL = ccd_l;
+            tSA_SEL = sa_sel; tWTR = wtr;
         }
-        int executeMemoryEvent(pimeval::EventNode* ev, unsigned currCycle);
+        int executeMemoryEvent(size_t currCycle);
 
 
     private:
-    const size_t rows = 65536;
+    const size_t SA_num = 32;
+    const size_t row_per_SA = 512;
     const size_t columns = 1024;
     const size_t BL = 8;
     const size_t sz_per_row = columns * BL;
+    const size_t sz_per_SA = sz_per_row * row_per_SA;
 
     int tRAS = 52; //minimun time between act and prec
     int tRTP = 12; //minimum time between read and prec
     int tWR = 24; //minimum time between write and prec
+    int tWTR = 3; //minimum time of write after read delay
     int tRCDRD = 22;
     int tRP = 22;
     int tCCDL = 8;
 
-    long long last_opened_row{-1};
+    int tSA_SEL = 4;
+
+    // long long last_opened_row{-1};
     size_t t_last_read{0};
     size_t t_last_write{0};
     size_t t_last_act{0};
+
+    int sa_sel_table[256] = {-1};
+    std::queue<pimeval::EventNode> ddr_events;
 };
 
 class SimdMemory {
