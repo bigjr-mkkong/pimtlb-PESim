@@ -222,6 +222,13 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     return ddr_delay - 1 < 0?0:ddr_delay - 1;
 }
 
+void SimdMemory::reset() {
+    dram_bank.reset();
+    regions_.clear();
+
+    return;
+}
+
 tiny_dram_bank &SimdMemory::bank_model(){
     return dram_bank;
 }
@@ -314,19 +321,20 @@ int tiny_dram_bank::executeMemoryEvent(size_t currCycle){
         case pimeval::EventType::READ_SCALAR:
         {
             ev.stalledCycle = get_rd_delay(sim_cycl);
-            ev.cycleCount = tCCDS + ev.stalledCycle; 
-            single_cycle_required = tCCDS + ev.stalledCycle;
+            ev.cycleCount = tCCDL + ev.stalledCycle; 
+            single_cycle_required = tCCDL + ev.stalledCycle;
             t_last_read = sim_cycl + single_cycle_required;
             break;
         }
         case pimeval::EventType::WRITE_CHUNK:
         {
             ev.stalledCycle = get_wr_delay(sim_cycl);
-            ev.cycleCount = tCCDS + ev.stalledCycle;
-            single_cycle_required = tCCDS + ev.stalledCycle;
+            ev.cycleCount = tCCDL + ev.stalledCycle;
+            single_cycle_required = tCCDL + ev.stalledCycle;
             t_last_write = sim_cycl + single_cycle_required;
             break;
         }
+#ifdef MASA_TLDRAM
         case pimeval::EventType::FAST_PREC:
         {
             ev.stalledCycle = get_prec_delay(sim_cycl);
@@ -341,6 +349,7 @@ int tiny_dram_bank::executeMemoryEvent(size_t currCycle){
             single_cycle_required = tISO + ev.stalledCycle;
             t_last_write = sim_cycl + single_cycle_required;
         }
+#endif
         default:
             break;
         }
@@ -348,4 +357,30 @@ int tiny_dram_bank::executeMemoryEvent(size_t currCycle){
         sim_cycl += single_cycle_required;
     }
     return total_cycle_required;
+}
+
+void tiny_dram_bank::reset() {
+    /* Reset timing parameter back to its original value */
+    tRAS = 52;
+    tRTP = 12;
+    tWR = 24; 
+    tWTR = 3; 
+    tRCDRD = 22;
+    tRP = 22;
+    tCCDL = 8;
+    tSA_SEL = 3;
+    tRP_FAST = 12;
+    tISO = 2;
+    tWR_FAST = 12;
+    tWTR_FAST = 0;
+
+    t_last_act = 0;
+    t_last_read = 0;
+    t_last_write = 0;
+
+    for(int i=0; i<256; i++)
+        sa_sel_table[i] = -1;
+
+    while(!ddr_events.empty())
+        ddr_events.pop();
 }

@@ -9,7 +9,7 @@
 #include "HMT.h"
 
 #define ROUND_UP(x, y) \
-    ((x) + (y) - 1) / (y);
+    (((x) + (y) - 1) / (y))
 
 class SimdCpu {
 public:
@@ -29,8 +29,10 @@ public:
     void pause();
     void resume();
 
+    void reset();
+
     void set_timing(int ccd, int rp, int rcd){
-        tCCD_S = ccd; tRP = rp; tRCD = rcd;
+        tCCD_L = ccd; tRP = rp; tRCD = rcd;
     }
 
 private:
@@ -39,11 +41,21 @@ private:
     static constexpr size_t kVectorBytes = 16;
 
     //Parameter comes from DDR4_4Gb_x16_3200
-    int tCCD_S = 4;
+    int tCCD_L = 8;
     int tRP = 22;
     int tRCD = 22;
-    int pre_pause_hold_cycl = ROUND_UP(tRP - tCCD_S, tCCD_S); //tRP
-    int post_resume_hold_cycl = ROUND_UP(tRCD - 4 * tCCD_S, tCCD_S); //tRAS - 4 * tCCDSs
+
+    //should be the same as in HMT.h
+    int tRP_FAST = 12; 
+    int tRCD_FAST = 12;
+
+#ifndef MASA_TLDRAM
+    int pre_pause_hold_cycl = ROUND_UP((rand() % 4) + 3 * tCCD_L + std::max(tRP + tRCD, tCCD_L), tCCD_L) - 1;
+    int post_resume_hold_cycl = ROUND_UP(tRP + tRCD, tCCD_L) - 1;
+#else
+    int pre_pause_hold_cycl = ROUND_UP((rand() % 4) + 3 * tCCD_L + std::max(tRP_FAST + tRCD_FAST, tCCD_L), tCCD_L) - 1;
+    int post_resume_hold_cycl = ROUND_UP(tRP_FAST + tRCD_FAST, tCCD_L) - 1;
+#endif
     
 
     struct IfId {

@@ -1,13 +1,47 @@
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <cassert>
+#include <ostream>
 #include <stdexcept>
+#include <time.h>
 #include "cpu.h"
 #include "HMT.h"
 
 SimdCpu::SimdCpu(SimdMemory *memory) : memory_(memory) {
     assert(memory_ != nullptr);
 }
+
+void SimdCpu::reset() {
+    memory_->reset();
+    while(!traces_.empty()) traces_.pop();
+
+    pc_ = 0;
+    cycl = 0;
+    hold_cntr = 0;
+    cpu_stop_ = false;
+    cpu_pause_ = false;
+    cpu_post_resume_delay = false;
+    cpu_ready4signal = true;
+
+
+    for(auto vreg: vregs_) {
+        vreg = {0, 0, 0, 0};
+    }
+
+    for(auto freg: fregs_) {
+        freg = {};
+    }
+
+    if_id_ = {0};
+    id_hmt_ = {0};
+    hmt_ex_ = {0};
+    ex_mem_ = {0};
+    mem_wb_ = {0};
+
+    return;
+}
+
 
 void SimdCpu::load_program(const std::vector<SimdInstruction> &program) {
     program_ = program;
@@ -18,6 +52,7 @@ void SimdCpu::load_program(const std::vector<SimdInstruction> &program) {
     hmt_ex_ = {};
     ex_mem_ = {};
     mem_wb_ = {};
+    srand(time(0));
 }
 
 void SimdCpu::load_trace(const std::priority_queue<trace_ent_t> &trace){
@@ -63,6 +98,7 @@ void SimdCpu::pause(){
     }
         
     cpu_pause_ = true;
+    // std::cout<<"pre pause hold cycl:"<<pre_pause_hold_cycl<<std::endl;
     hold_cntr = pre_pause_hold_cycl;
 }
 
@@ -77,6 +113,7 @@ void SimdCpu::resume(){
 
     cpu_pause_ = false;
     cpu_post_resume_delay = true;
+    // std::cout<<"post pause hold cycl:"<<post_resume_hold_cycl<<std::endl;
     hold_cntr = post_resume_hold_cycl;
 }
 
@@ -213,17 +250,17 @@ void SimdCpu::tick() {
                 break;
             case SimdOpcode::Ld128:
                 ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
-                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
+                next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
                 ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
-                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
+                next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
                 ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
-                next_ex_mem.mem_delay_remaining = ddr_delay + pause_delay;
+                next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::FatptrLi:
                 next_ex_mem.fatptr_result = hmt_ex_.inst.fatptr_imm;
@@ -365,25 +402,23 @@ void SimdCpu::tick() {
 }
 
 void SimdCpu::run(size_t max_cycles) {
-    bool trace_flag = true;
     if(traces_.empty()){
        std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
-       trace_flag = false;
     }
 
 
     for (size_t i = 0; i < max_cycles; ++i) {
         cycl = i;// This variable is for MEM stage delay calculation
 
-        if(trace_flag) {
+        if(!traces_.empty()) {
             trace_ent_t tr = traces_.top();
             if(i == tr.time){
                 if(tr.op == PAUSE){
-                    std::cout<<"Pausing @ "<<i<<std::endl;
+                    // std::cout<<"Pausing @ "<<i<<std::endl;
                     pause();
                 }
                 else if(tr.op == RESUME){
-                    std::cout<<"Resuming @ "<<i<<std::endl;
+                    // std::cout<<"Resuming @ "<<i<<std::endl;
                     resume();
                 }
 
@@ -393,7 +428,12 @@ void SimdCpu::run(size_t max_cycles) {
 
         tick();
         if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
+            std::cout<<"Program finished in cycl: "<<i<<std::endl;
             break;
         }
+    }
+
+    if(cycl == max_cycles - 1){
+        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
     }
 }

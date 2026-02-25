@@ -17,6 +17,8 @@ class SimdSim {
 public:
     SimdSim();
     void add_region(uint32_t varidx, size_t size_bytes);
+    void fill_region(uint32_t varidx, const std::vector<uint8_t> &src);
+    void set_vreg(size_t idx, const std::array<uint32_t, 4> &value);
     void load_program(const std::vector<SimdInstruction> &program);
     bool empty_program();
     void load_trace(const std::priority_queue<trace_ent_t> &traces_);

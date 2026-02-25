@@ -52,6 +52,14 @@ void SimdSim::add_region(uint32_t varidx, size_t size_bytes) {
     memory_.add_region(varidx, size_bytes);
 }
 
+void SimdSim::fill_region(uint32_t varidx, const std::vector<uint8_t> &src){
+    memory_.fill_region(varidx, src);
+}
+
+void SimdSim::set_vreg(size_t idx, const std::array<uint32_t, 4> &value){
+    cpu_.set_vreg(idx, value);
+}
+
 void SimdSim::load_program(const std::vector<SimdInstruction> &program) {
     program_ = program;
     cpu_.load_program(program_);

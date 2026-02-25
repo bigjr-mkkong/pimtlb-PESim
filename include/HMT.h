@@ -36,11 +36,12 @@ class tiny_dram_bank{
         void push_ddr(pimeval::EventNode *ev);
 
         void set_timing(int ras, int rtp, int wr, int rcdrd,\
-                int rp, int ccd_s, int sa_sel, int wtr){
-            tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDS = ccd_s;
+                int rp, int ccd_l, int sa_sel, int wtr){
+            tRAS = ras; tRTP = rtp; tWR = wr; tRCDRD = rcdrd; tRP = rp; tCCDL = ccd_l;
             tSA_SEL = sa_sel; tWTR = wtr;
         }
         int executeMemoryEvent(size_t currCycle);
+        void reset();
 
 
     private:
@@ -57,7 +58,7 @@ class tiny_dram_bank{
     int tWTR = 3; //minimum time of write after read delay
     int tRCDRD = 22;
     int tRP = 22;
-    int tCCDS = 4;
+    int tCCDL = 8;
 
     int tSA_SEL = 3;
 
@@ -85,6 +86,8 @@ public:
     void store128(size_t phys_addr, const std::array<uint32_t, 4> &value);
     bool equal128(size_t phys_addr, const std::array<uint32_t, 4> &value) const;
     size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl);
+
+    void reset();
     tiny_dram_bank &bank_model();
 
 private:
