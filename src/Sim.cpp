@@ -1,5 +1,8 @@
 #include "PESim.h"
 #include <queue>
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
 
 SimdSim::SimdSim() : cpu_(&memory_) {
     program_.push_back(SimdInstruction{
@@ -27,9 +30,74 @@ bool SimdSim::empty_program(){
 }
 
 void SimdSim::run(size_t max_cycles) {
+    size_t cycl = 0;
     cpu_.load_program(program_);
-    // cpu_.load_trace(trace_);
-    cpu_.run(max_cycles);
+    // cpu_.run(max_cycles);
+
+    bool pe_fin = false, trace_fin = false;
+    if(traces_.empty()){
+       std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
+    }
+
+    for (size_t i = 0; i < max_cycles; ++i) {
+        if(!traces_.empty()) {
+            trace_ent_t tr = traces_.top();
+            if(i == tr.time){
+                switch(tr.op){
+                    case PAUSE:
+                        {
+                            cpu_.pause();
+                            break;
+                        }
+                    case RESUME:
+                        {
+                            cpu_.resume();
+                            break;
+                        }
+                    case READ:
+                        {
+                            //dramsim eat
+                            break;
+                        }
+                    case WRITE:
+                        {
+                            //dramsim eat
+                            break;
+                        }
+
+                    default:
+                        {
+                            std::cerr<<"Unrecognized trace op"<<std::endl;
+                            exit(1);
+                        }
+                }
+
+                traces_.pop();
+            }
+        }
+
+        cpu_.tick();
+        if (cpu_.is_stopped() && !pe_fin) {
+            std::cout<<"Program finished at: "<<i<<std::endl;
+            pe_fin = true;
+        }
+
+        if(traces_.size() == 0 && !trace_fin){
+            std::cout<<"Trace finished at: "<<i<<std::endl;
+            trace_fin = true;
+        }
+
+        if(pe_fin && trace_fin) {
+            std::cout<<"Simulation done in cycl: "<<i<<std::endl;
+            break;
+        }
+
+        cpu_.inc_cycl();
+    }
+
+    if(cycl == max_cycles - 1){
+        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
+    }
 }
 
 SimdCpu &SimdSim::cpu() {

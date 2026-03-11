@@ -19,6 +19,7 @@ public:
     void load_trace(const std::priority_queue<trace_ent_t> &trace);
     void tick();
     void run(size_t max_cycles);
+    void inc_cycl();
     bool is_stopped() const;
 
     const std::array<uint32_t, 4> &get_vreg(size_t idx) const;
@@ -50,10 +51,10 @@ private:
     int tRCD_FAST = 12;
 
 #ifndef MASA_TLDRAM
-    int pre_pause_hold_cycl = ROUND_UP((rand() % 4) + 3 * tCCD_L + std::max(tRP + tRCD, tCCD_L), tCCD_L) - 1;
+    int pre_pause_hold_cycl = ROUND_UP(std::max(tRP + tRCD - tCCD_L, tCCD_L), tCCD_L) - 1;
     int post_resume_hold_cycl = ROUND_UP(tRP + tRCD, tCCD_L) - 1;
 #else
-    int pre_pause_hold_cycl = ROUND_UP((rand() % 4) + 3 * tCCD_L + std::max(tRP_FAST + tRCD_FAST, tCCD_L), tCCD_L) - 1;
+    int pre_pause_hold_cycl = ROUND_UP(std::max(tRP_FAST + tRCD_FAST - tCCD_L, tCCD_L), tCCD_L) - 1;
     int post_resume_hold_cycl = ROUND_UP(tRP_FAST + tRCD_FAST, tCCD_L) - 1;
 #endif
     

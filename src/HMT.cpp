@@ -236,11 +236,20 @@ tiny_dram_bank &SimdMemory::bank_model(){
 bool tiny_dram_bank::is_hit(size_t paddr){
     size_t SA = paddr / sz_per_SA;
     size_t row = (paddr%sz_per_SA) / sz_per_row;
+#ifdef MASA_TLDRAM
     if(sa_sel_table[SA] == row) return true;
     else {
         sa_sel_table[SA] = row;
         return false;
     }
+#else
+    if(opened_row == row) return true;
+    else {
+        opened_row = row;
+        opened_SA = SA;
+        return false;
+    }
+#endif
 }
 void tiny_dram_bank::update_hit(size_t paddr){
     size_t SA = paddr / sz_per_SA;
@@ -380,6 +389,9 @@ void tiny_dram_bank::reset() {
 
     for(int i=0; i<256; i++)
         sa_sel_table[i] = -1;
+
+    opened_row = -1;
+    opened_SA = -1;
 
     while(!ddr_events.empty())
         ddr_events.pop();

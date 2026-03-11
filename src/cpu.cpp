@@ -60,7 +60,7 @@ void SimdCpu::load_trace(const std::priority_queue<trace_ent_t> &trace){
 }
 
 bool SimdCpu::is_stopped() const {
-    return cpu_stop_;
+    return (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid);
 }
 
 const std::array<uint32_t, 4> &SimdCpu::get_vreg(size_t idx) const {
@@ -401,39 +401,62 @@ void SimdCpu::tick() {
     pc_ = next_pc;
 }
 
-void SimdCpu::run(size_t max_cycles) {
-    if(traces_.empty()){
-       std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
-    }
+//void SimdCpu::run(size_t max_cycles) {
+//    if(traces_.empty()){
+//       std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
+//    }
 
 
-    for (size_t i = 0; i < max_cycles; ++i) {
-        cycl = i;// This variable is for MEM stage delay calculation
+//    for (size_t i = 0; i < max_cycles; ++i) {
+//        cycl = i;// This variable is for MEM stage delay calculation
 
-        if(!traces_.empty()) {
-            trace_ent_t tr = traces_.top();
-            if(i == tr.time){
-                if(tr.op == PAUSE){
-                    // std::cout<<"Pausing @ "<<i<<std::endl;
-                    pause();
-                }
-                else if(tr.op == RESUME){
-                    // std::cout<<"Resuming @ "<<i<<std::endl;
-                    resume();
-                }
+//        if(!traces_.empty()) {
+//            trace_ent_t tr = traces_.top();
+//            if(i == tr.time){
+//                switch(tr.op){
+//                    case PAUSE:
+//                        {
+//                            pause();
+//                            break;
+//                        }
+//                    case RESUME:
+//                        {
+//                            resume();
+//                            break;
+//                        }
+//                    case READ:
+//                        {
+//                            //dramsim eat
+//                            break;
+//                        }
+//                    case WRITE:
+//                        {
+//                            //dramsim eat
+//                            break;
+//                        }
 
-                traces_.pop();
-            }
-        }
+//                    default:
+//                        {
+//                            std::cerr<<"Unrecognized trace op"<<std::endl;
+//                            exit(1);
+//                        }
+//                }
 
-        tick();
-        if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
-            std::cout<<"Program finished in cycl: "<<i<<std::endl;
-            break;
-        }
-    }
+//                traces_.pop();
+//            }
+//        }
 
-    if(cycl == max_cycles - 1){
-        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
-    }
+//        tick();
+//        if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
+//            std::cout<<"Program finished in cycl: "<<i<<std::endl;
+//            break;
+//        }
+//    }
+
+//    if(cycl == max_cycles - 1){
+//        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
+//    }
+//}
+void SimdCpu::inc_cycl(){
+    cycl++;
 }

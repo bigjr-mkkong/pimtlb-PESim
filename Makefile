@@ -7,6 +7,7 @@ SRC_DIR  := src
 INC_DIR  := include
 BUILD_DIR := build
 BIN_DIR   := bin
+DRAMSIM3_PATH := ../dramsim3
 
 # Target executable
 TARGET := $(BIN_DIR)/app
@@ -31,7 +32,7 @@ all: dirs $(OBJS)
 
 # Compile each .cpp → .o and produce .d dependency file
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp Makefile
-	$(CXX) -I$(INC_DIR) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) -I$(INC_DIR) -I$(DRAMSIM3_PATH)/src -I$(DRAMSIM3_PATH)/ext/headers $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 # Create directories if they don't exist
 dirs:

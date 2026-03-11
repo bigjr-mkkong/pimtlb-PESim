@@ -4,8 +4,10 @@
 #include "configs.h"
 #include "cpu.h"
 #include "HMT.h"
+#include "memory_system.h"
 #include <vector>
 #include <queue>
+// #include "../dramsim3/DRAMSim3/src/memory_system.h"
 
 
 class SimdSim {
@@ -13,6 +15,7 @@ class SimdSim {
     SimdCpu cpu_;
     std::vector<SimdInstruction> program_;
     std::priority_queue<trace_ent_t> traces_;
+    // dramsim3::MemorySystem *dramsim3;
 
 public:
     SimdSim();

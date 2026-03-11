@@ -72,6 +72,8 @@ class tiny_dram_bank{
     size_t t_last_write{0};
     size_t t_last_act{0};
 
+    int opened_SA = -1;
+    int opened_row = -1;
     int sa_sel_table[256] = {-1};
     std::queue<pimeval::EventNode> ddr_events;
 };
