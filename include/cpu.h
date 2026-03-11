@@ -21,6 +21,7 @@ public:
     void run(size_t max_cycles);
     void inc_cycl();
     bool is_stopped() const;
+    bool ready4signal();
 
     const std::array<uint32_t, 4> &get_vreg(size_t idx) const;
     void set_vreg(size_t idx, const std::array<uint32_t, 4> &value);

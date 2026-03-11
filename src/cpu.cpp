@@ -63,6 +63,11 @@ bool SimdCpu::is_stopped() const {
     return (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid);
 }
 
+bool SimdCpu::ready4signal(){
+    return cpu_ready4signal;
+}
+
+
 const std::array<uint32_t, 4> &SimdCpu::get_vreg(size_t idx) const {
     if (idx >= kVectorRegisters) {
         throw std::out_of_range("vector register index out of range");
@@ -401,62 +406,6 @@ void SimdCpu::tick() {
     pc_ = next_pc;
 }
 
-//void SimdCpu::run(size_t max_cycles) {
-//    if(traces_.empty()){
-//       std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
-//    }
-
-
-//    for (size_t i = 0; i < max_cycles; ++i) {
-//        cycl = i;// This variable is for MEM stage delay calculation
-
-//        if(!traces_.empty()) {
-//            trace_ent_t tr = traces_.top();
-//            if(i == tr.time){
-//                switch(tr.op){
-//                    case PAUSE:
-//                        {
-//                            pause();
-//                            break;
-//                        }
-//                    case RESUME:
-//                        {
-//                            resume();
-//                            break;
-//                        }
-//                    case READ:
-//                        {
-//                            //dramsim eat
-//                            break;
-//                        }
-//                    case WRITE:
-//                        {
-//                            //dramsim eat
-//                            break;
-//                        }
-
-//                    default:
-//                        {
-//                            std::cerr<<"Unrecognized trace op"<<std::endl;
-//                            exit(1);
-//                        }
-//                }
-
-//                traces_.pop();
-//            }
-//        }
-
-//        tick();
-//        if (cpu_stop_ && !if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
-//            std::cout<<"Program finished in cycl: "<<i<<std::endl;
-//            break;
-//        }
-//    }
-
-//    if(cycl == max_cycles - 1){
-//        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
-//    }
-//}
 void SimdCpu::inc_cycl(){
     cycl++;
 }

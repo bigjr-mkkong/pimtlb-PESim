@@ -1,8 +1,41 @@
 #include "PESim.h"
+#include "memory_system.h"
+#include <cassert>
+#include <memory>
 #include <queue>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+
+#define MEM_BATCH_SZ    1
+
+void SimdSim::dramsim3_read_callback(uint64_t addr) {
+    pendmap[addr] -= 1;
+    if(pendmap[addr] < 0){
+        std::cerr<<"dramsim3 read callback failed"<<std::endl;
+        exit(1);
+    }
+    return;
+}
+
+void SimdSim::dramsim3_write_callback(uint64_t addr) {
+    pendmap[addr] -= 1;
+    if(pendmap[addr] < 0){
+        std::cerr<<"dramsim3 write callback failed"<<std::endl;
+        exit(1);
+    }
+    return;
+}
+
+bool SimdSim::dramsim3_empty(){
+    for(auto &i: pendmap) {
+        if(i.second > 0)
+            return false;
+    }
+
+    return true;
+}
+
 
 SimdSim::SimdSim() : cpu_(&memory_) {
     program_.push_back(SimdInstruction{
@@ -23,6 +56,13 @@ SimdSim::SimdSim() : cpu_(&memory_) {
         .mask = 0,
         .fatptr_imm = {0, 0},
     });
+    
+    dramsim3 = std::make_unique<dramsim3::MemorySystem>(
+        "/home/michael/Projects/pimtlb/PIM-AutoDSE/libpimeval/dramsim3/configs",
+        "/home/michael/Projects/pimtlb/PIM-AutoDSE/libpimeval/output",
+        [this](uint64_t addr) {this->dramsim3_read_callback(addr);},
+        [this](uint64_t addr) {this->dramsim3_write_callback(addr);}
+    );
 }
 
 bool SimdSim::empty_program(){
@@ -39,44 +79,58 @@ void SimdSim::run(size_t max_cycles) {
        std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
     }
 
+    enum {
+        MEM,
+        PIM
+    } sim_mode;
+
+
+    bool pimcpu_started = false;
+    sim_mode = MEM;
+
+    int tMEM = 0, tPIM = 0;
+    int batch_size = MEM_BATCH_SZ;
+
     for (size_t i = 0; i < max_cycles; ++i) {
-        if(!traces_.empty()) {
+        if(sim_mode == MEM && !traces_.empty()) {
             trace_ent_t tr = traces_.top();
-            if(i == tr.time){
-                switch(tr.op){
-                    case PAUSE:
-                        {
-                            cpu_.pause();
-                            break;
-                        }
-                    case RESUME:
-                        {
-                            cpu_.resume();
-                            break;
-                        }
-                    case READ:
-                        {
-                            //dramsim eat
-                            break;
-                        }
-                    case WRITE:
-                        {
-                            //dramsim eat
-                            break;
-                        }
-
-                    default:
-                        {
-                            std::cerr<<"Unrecognized trace op"<<std::endl;
-                            exit(1);
-                        }
+            if(tr.time <= i) {
+                if(tr.op == READ) {
+                    if(dramsim3->WillAcceptTransaction(tr.addr, false)){
+                        dramsim3->AddTransaction(tr.addr, false);
+                    }
+                } else {
+                    if(dramsim3->WillAcceptTransaction(tr.addr, true)){
+                        dramsim3->AddTransaction(tr.addr, true);
+                    }
                 }
-
-                traces_.pop();
+                batch_size--;
             }
         }
 
-        cpu_.tick();
+        if(sim_mode == MEM) {
+            dramsim3->ClockTick();
+            tMEM++;
+            if(dramsim3_empty()) {
+                sim_mode = PIM;
+
+                if(pimcpu_started)
+                    cpu_.resume();
+            }
+        } else {
+            cpu_.tick();
+            cpu_.inc_cycl();
+            pimcpu_started = true;
+            tPIM++;
+            if(tPIM == tMEM) {
+                cpu_.pause();
+                tPIM = 0;
+                tMEM = 0;
+                batch_size = MEM_BATCH_SZ;
+                sim_mode = MEM;
+            }
+        }
+
         if (cpu_.is_stopped() && !pe_fin) {
             std::cout<<"Program finished at: "<<i<<std::endl;
             pe_fin = true;
@@ -92,7 +146,6 @@ void SimdSim::run(size_t max_cycles) {
             break;
         }
 
-        cpu_.inc_cycl();
     }
 
     if(cycl == max_cycles - 1){

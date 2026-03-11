@@ -5,9 +5,11 @@
 #include "cpu.h"
 #include "HMT.h"
 #include "memory_system.h"
+#include <algorithm>
 #include <vector>
 #include <queue>
-// #include "../dramsim3/DRAMSim3/src/memory_system.h"
+#include <map>
+#include <memory>
 
 
 class SimdSim {
@@ -15,7 +17,13 @@ class SimdSim {
     SimdCpu cpu_;
     std::vector<SimdInstruction> program_;
     std::priority_queue<trace_ent_t> traces_;
-    // dramsim3::MemorySystem *dramsim3;
+
+    std::unique_ptr<dramsim3::MemorySystem> dramsim3;
+    std::map<uint64_t, int> pendmap;
+
+    void dramsim3_read_callback(uint64_t addr);
+    void dramsim3_write_callback(uint64_t addr);
+    bool dramsim3_empty();
 
 public:
     SimdSim();
@@ -30,6 +38,8 @@ public:
     const SimdCpu &cpu() const;
     SimdMemory &memory();
     const SimdMemory &memory() const;
+
+
 };
 
 #endif
