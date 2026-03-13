@@ -24,6 +24,9 @@ class SimdSim {
     void dramsim3_read_callback(uint64_t addr);
     void dramsim3_write_callback(uint64_t addr);
     bool dramsim3_empty();
+    void run_MEM(sim_option_t opt);
+    void run_PIM(sim_option_t opt);
+    void run_HYBRID(sim_option_t opt);
 
 public:
     SimdSim();
@@ -33,7 +36,7 @@ public:
     void load_program(const std::vector<SimdInstruction> &program);
     bool empty_program();
     void load_trace(const std::priority_queue<trace_ent_t> &traces_);
-    void run(size_t max_cycles);
+    void run(sim_option_t opt);
     SimdCpu &cpu();
     const SimdCpu &cpu() const;
     SimdMemory &memory();

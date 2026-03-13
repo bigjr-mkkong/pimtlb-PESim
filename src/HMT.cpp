@@ -260,7 +260,6 @@ void tiny_dram_bank::update_hit(size_t paddr){
 }
 bool tiny_dram_bank::is_active(size_t paddr){
     size_t SA = paddr / sz_per_SA;
-    size_t row = (paddr%sz_per_SA) / sz_per_row;
     return sa_sel_table[SA] == -1;
 }
 int tiny_dram_bank::get_prec_delay(size_t cycl){

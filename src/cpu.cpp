@@ -229,7 +229,6 @@ void SimdCpu::tick() {
         }
     }
 
-    int ddr_delay = 0;
     ExMem next_ex_mem{};
     if (mem_stall) {
         next_ex_mem = ex_mem_;

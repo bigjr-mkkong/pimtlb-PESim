@@ -69,88 +69,217 @@ bool SimdSim::empty_program(){
     return program_.empty();
 }
 
-void SimdSim::run(size_t max_cycles) {
+void SimdSim::run_MEM(sim_option_t opt){
+    size_t i = 0;
+    bool early_stop = false;
+    for(;i < opt.max_cycle; i++) {
+        trace_ent_t tr = traces_.top();
+        bool is_write = (tr.op == WRITE);
+        if(i >= tr.time) {
+            if(dramsim3->WillAcceptTransaction(tr.addr, is_write)){
+                dramsim3->AddTransaction(tr.addr, is_write);
+                traces_.pop();
+            }
+        }
+
+        if(dramsim3_empty() && traces_.empty()){
+            early_stop = true;
+            break;
+        }
+    }
+    if(early_stop){
+        std::cout<<"MEM Simulation finished before time runs out"<<std::endl;
+    }
+    std::cout<<"MEM Simulation done in cycle: "<<i<<std::endl;
+}
+void SimdSim::run_PIM(sim_option_t opt){
+    size_t i = 0;
+    bool early_stop = false;
+    for(;i < opt.max_cycle; i++) {
+        cpu_.tick();
+        cpu_.inc_cycl();
+
+        if(cpu_.is_stopped()){
+            early_stop = true;
+            break;
+        }
+    }
+
+    if(early_stop){
+        std::cout<<"PIM Simulation finished before time runs out"<<std::endl;
+    }
+
+    std::cout<<"PIM Simulation done in cycle: "<<i<<std::endl;
+
+}
+void SimdSim::run_HYBRID(sim_option_t opt){
     size_t cycl = 0;
     cpu_.load_program(program_);
-    // cpu_.run(max_cycles);
 
     bool pe_fin = false, trace_fin = false;
     if(traces_.empty()){
        std::cout<<"Trace is empty, this simulation will run without stop"<<std::endl;
     }
 
-    enum {
-        MEM,
-        PIM
-    } sim_mode;
-
+    enum SimMode {
+        MEM_WAIT_BATCH,
+        MEM_RUN,
+        SWITCH_TO_PIM,
+        PIM_RUN,
+        SWITCH_TO_MEM
+    };
 
     bool pimcpu_started = false;
-    sim_mode = MEM;
 
-    int tMEM = 0, tPIM = 0;
-    int batch_size = MEM_BATCH_SZ;
+    SimMode sim_mode = MEM_WAIT_BATCH;
 
-    for (size_t i = 0; i < max_cycles; ++i) {
-        if(sim_mode == MEM && !traces_.empty()) {
-            trace_ent_t tr = traces_.top();
-            if(tr.time <= i) {
-                if(tr.op == READ) {
-                    if(dramsim3->WillAcceptTransaction(tr.addr, false)){
-                        dramsim3->AddTransaction(tr.addr, false);
-                    }
-                } else {
-                    if(dramsim3->WillAcceptTransaction(tr.addr, true)){
-                        dramsim3->AddTransaction(tr.addr, true);
+    int mem_budget_cycles = 0;
+    int pim_budget_cycles = 0;
+    int batch_left = MEM_BATCH_SZ;
+
+    bool batch_started = false;
+
+    for (size_t i = 0; i < opt.max_cycle; ++i) {
+
+        switch (sim_mode) {
+
+        case MEM_WAIT_BATCH: {
+
+            if (!traces_.empty()) {
+                trace_ent_t tr = traces_.top();
+
+                if (tr.time <= i) {
+                    bool is_write = (tr.op != READ);
+
+                    if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
+                        dramsim3->AddTransaction(tr.addr, is_write);
+                        pendmap[tr.addr] += 1;
+                        traces_.pop();
+
+                        batch_left = MEM_BATCH_SZ - 1;
+                        batch_started = true;
+                        mem_budget_cycles = 0;
+
+                        sim_mode = MEM_RUN;
                     }
                 }
-                batch_size--;
             }
-        }
-
-        if(sim_mode == MEM) {
-            dramsim3->ClockTick();
-            tMEM++;
-            if(dramsim3_empty()) {
-                sim_mode = PIM;
-
-                if(pimcpu_started)
-                    cpu_.resume();
-            }
-        } else {
-            cpu_.tick();
-            cpu_.inc_cycl();
-            pimcpu_started = true;
-            tPIM++;
-            if(tPIM == tMEM) {
-                cpu_.pause();
-                tPIM = 0;
-                tMEM = 0;
-                batch_size = MEM_BATCH_SZ;
-                sim_mode = MEM;
-            }
-        }
-
-        if (cpu_.is_stopped() && !pe_fin) {
-            std::cout<<"Program finished at: "<<i<<std::endl;
-            pe_fin = true;
-        }
-
-        if(traces_.size() == 0 && !trace_fin){
-            std::cout<<"Trace finished at: "<<i<<std::endl;
-            trace_fin = true;
-        }
-
-        if(pe_fin && trace_fin) {
-            std::cout<<"Simulation done in cycl: "<<i<<std::endl;
             break;
         }
 
+        case MEM_RUN: {
+            if (batch_left > 0 && !traces_.empty()) {
+                trace_ent_t tr = traces_.top();
+
+                if (tr.time <= i) {
+                    bool is_write = (tr.op != READ);
+
+                    if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
+                        dramsim3->AddTransaction(tr.addr, is_write);
+                        pendmap[tr.addr] += 1;
+
+                        traces_.pop();
+                        batch_left--;
+                    }
+                }
+            }
+
+            dramsim3->ClockTick();
+            mem_budget_cycles++;
+
+            if (batch_started && dramsim3_empty()) {
+                pim_budget_cycles = 0;
+                sim_mode = SWITCH_TO_PIM;
+
+                if (pimcpu_started) {
+                    cpu_.resume();
+                }
+            }
+
+            break;
+        }
+
+        case SWITCH_TO_PIM: {
+            if (!pimcpu_started) {
+                pimcpu_started = true;
+                sim_mode = PIM_RUN;
+            } else {
+                cpu_.tick();
+                cpu_.inc_cycl();
+
+                if (cpu_.ready4signal()) {
+                    sim_mode = PIM_RUN;
+                }
+            }
+            break;
+        }
+
+        case PIM_RUN: {
+            cpu_.tick();
+            cpu_.inc_cycl();
+            pimcpu_started = true;
+            pim_budget_cycles++;
+
+            if (pim_budget_cycles >= mem_budget_cycles) {
+                cpu_.pause();
+                sim_mode = SWITCH_TO_MEM;
+            }
+            break;
+        }
+
+        case SWITCH_TO_MEM: {
+            cpu_.tick();
+            cpu_.inc_cycl();
+
+            if (cpu_.ready4signal()) {
+                batch_left = MEM_BATCH_SZ;
+                batch_started = false;
+                mem_budget_cycles = 0;
+                pim_budget_cycles = 0;
+                sim_mode = MEM_WAIT_BATCH;
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        if (cpu_.is_stopped() && !pe_fin) {
+            std::cout << "Program finished at: " << i << std::endl;
+            pe_fin = true;
+        }
+
+        if (traces_.empty() && !trace_fin) {
+            std::cout << "Trace finished at: " << i << std::endl;
+            trace_fin = true;
+        }
+
+        if (pe_fin && trace_fin) {
+            std::cout << "HYBRID Simulation done in cycle: " << i << std::endl;
+            break;
+        }
     }
 
-    if(cycl == max_cycles - 1){
-        std::cout<<"Simulation finished before program finished, did you give it enough time?"<<std::endl;
+    if(cycl == opt.max_cycle - 1){
+        std::cout<<"HYBRID Simulation finished before worload runs out, did you give it enough time?"<<std::endl;
     }
+}
+
+void SimdSim::run(sim_option_t opt) {
+    switch(opt.mode){
+        case sim_mode::MEM:
+            run_MEM(opt);
+            break;
+        case sim_mode::PIM:
+            run_PIM(opt);
+            break;
+        case sim_mode::HYBRID:
+            run_HYBRID(opt);
+            break;
+    }
+
+    return;
 }
 
 SimdCpu &SimdSim::cpu() {
