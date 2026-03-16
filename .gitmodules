@@ -1,0 +1,6 @@
+# [submodule "ext"]
+#     path = ext
+#     url = git@github.com:UVA-LavaLab/build-a-pim.git
+[submodule "pim-mc"]
+	path = pim-mc
+	url = git@github.com:UVA-LavaLab/build-a-pim.git
