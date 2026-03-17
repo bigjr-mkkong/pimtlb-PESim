@@ -1,7 +1,7 @@
 #ifndef __SIM_H__
 #define __SIM_H__
 
-#include "configs.h"
+#include "pesim-configs.h"
 #include "cpu.h"
 #include "HMT.h"
 #include "memory_system.h"

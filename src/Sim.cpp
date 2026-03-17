@@ -77,7 +77,7 @@ void SimdSim::run_MEM(sim_option_t opt){
         bool is_write = (tr.op == WRITE);
         if(i >= tr.time) {
             if(dramsim3->WillAcceptTransaction(tr.addr, is_write)){
-                dramsim3->AddTransaction(tr.addr, is_write);
+                dramsim3->AddTransaction(tr.addr, is_write, false);
                 traces_.pop();
             }
         }
@@ -152,7 +152,7 @@ void SimdSim::run_HYBRID(sim_option_t opt){
                     bool is_write = (tr.op != READ);
 
                     if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
-                        dramsim3->AddTransaction(tr.addr, is_write);
+                        dramsim3->AddTransaction(tr.addr, is_write, false);
                         pendmap[tr.addr] += 1;
                         traces_.pop();
 
@@ -175,7 +175,7 @@ void SimdSim::run_HYBRID(sim_option_t opt){
                     bool is_write = (tr.op != READ);
 
                     if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
-                        dramsim3->AddTransaction(tr.addr, is_write);
+                        dramsim3->AddTransaction(tr.addr, is_write, false);
                         pendmap[tr.addr] += 1;
 
                         traces_.pop();

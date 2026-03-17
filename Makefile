@@ -7,7 +7,7 @@ SRC_DIR  := src
 INC_DIR  := include
 BUILD_DIR := build
 BIN_DIR   := bin
-DRAMSIM3_PATH := ../dramsim3
+DRAMSIM3_PATH := pim-mc/dramsim3/
 
 # Target executable
 TARGET := $(BIN_DIR)/app

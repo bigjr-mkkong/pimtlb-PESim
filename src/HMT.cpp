@@ -1,14 +1,20 @@
 #include <algorithm>
-#include <cstring>
+#include <iostream>
+#include <string>
 #include <memory>
 #include <stdexcept>
 #include <cstdio>
 #include <cstdlib>
 #include "HMT.h"
+#include "dramsim3_wrapper.h"
+#include "memory_system.h"
 // #include "libpimeval.h"
 
 // #include "../../src/pimSim.h"
 //
+SimdMemory::SimdMemory() {
+    dsim3 = std::make_unique<dramsim3_wrapper>();
+}
 
 const SimdMemory::Region *SimdMemory::find_region(size_t phys_addr) const {
     for (const auto &entry : regions_) {
@@ -222,10 +228,46 @@ size_t SimdMemory::get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cyc
     return ddr_delay - 1 < 0?0:ddr_delay - 1;
 }
 
+
+size_t SimdMemory::get_delay_cycl_dramsim3(size_t phys_addr, bool is_read) {
+    size_t ticks = 0;
+    bool is_write = !is_read;
+    if(is_read) {
+        while (dsim3->get_pend_write(phys_addr) != 0 || !dsim3->WillAcceptTransaction(phys_addr, false)) {
+            ticks++;
+            dsim3->ClockTick();
+        }
+
+        bool ok = dsim3->AddTransaction(phys_addr, is_write, true);
+        if(!ok){
+            std::cerr<<"Failed to add transaction of address: "<<phys_addr<<std::endl;
+        }
+
+        while (dsim3->get_pend_read(phys_addr) != 0) {
+            ticks++;
+            dsim3->ClockTick();
+        }
+
+    } else {
+        while(!dsim3->WillAcceptTransaction(phys_addr, is_write)){
+            ticks++;
+            dsim3->ClockTick();
+        }
+        bool ok = dsim3->AddTransaction(phys_addr, is_write, true);
+        if(!ok){
+            std::cerr<<"Failed to add transaction of address: "<<phys_addr<<std::endl;
+        }
+    }
+
+
+    return ticks;
+}
+
 void SimdMemory::reset() {
     dram_bank.reset();
     regions_.clear();
 
+    dsim3 = std::make_unique<dramsim3_wrapper>();
     return;
 }
 

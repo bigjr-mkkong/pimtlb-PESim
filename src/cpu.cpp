@@ -253,17 +253,20 @@ void SimdCpu::tick() {
                 }
                 break;
             case SimdOpcode::Ld128:
-                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                // ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                ddr_delay = memory_->get_delay_cycl_dramsim3(next_ex_mem.phys_addr, true);
                 next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::St128:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                // ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, false, cycl);
+                ddr_delay = memory_->get_delay_cycl_dramsim3(next_ex_mem.phys_addr, false);
                 next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::EqualExit:
                 next_ex_mem.vec_operand = resolve_vec_operand(hmt_ex_.inst.rs1);
-                ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                // ddr_delay = memory_->get_delay_cycl(next_ex_mem.phys_addr, true, cycl);
+                ddr_delay = memory_->get_delay_cycl_dramsim3(next_ex_mem.phys_addr, true);
                 next_ex_mem.mem_delay_remaining = ROUND_UP(ddr_delay, tCCD_L) + pause_delay;
                 break;
             case SimdOpcode::FatptrLi:

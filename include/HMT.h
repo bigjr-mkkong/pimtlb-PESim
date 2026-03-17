@@ -1,7 +1,8 @@
 #ifndef __HMT_H__
 #define __HMT_H__
 
-#include "configs.h"
+#include "dramsim3_wrapper.h"
+#include "pesim-configs.h"
 
 #include <array>
 #include <cstdint>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "../../src/pimPerfEnergyBase.h"
+#include "memory_system.h"
 
 #define GETSET(T, N) \
   T get_##N() const { return N; };  \
@@ -80,6 +82,7 @@ class tiny_dram_bank{
 
 class SimdMemory {
 public:
+    SimdMemory();
     void add_region(uint32_t varidx, size_t size_bytes);
     void fill_region(uint32_t varidx, const std::vector<uint8_t> &data);
     bool check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
@@ -88,6 +91,7 @@ public:
     void store128(size_t phys_addr, const std::array<uint32_t, 4> &value);
     bool equal128(size_t phys_addr, const std::array<uint32_t, 4> &value) const;
     size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl);
+    size_t get_delay_cycl_dramsim3(size_t phys_addr, bool is_read);
 
     void reset();
     tiny_dram_bank &bank_model();
@@ -102,6 +106,7 @@ private:
     std::unordered_map<uint32_t, Region> regions_;
 
     tiny_dram_bank dram_bank;
+    std::unique_ptr<dramsim3_wrapper> dsim3;
 };
 
 #endif
