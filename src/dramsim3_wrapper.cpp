@@ -1,4 +1,4 @@
-#include "dramsim3_wrapper.h""
+#include "dramsim3_wrapper.h"
 #include "pesim-configs.h"
 #include "memory_system.h"
 #include <iostream>
