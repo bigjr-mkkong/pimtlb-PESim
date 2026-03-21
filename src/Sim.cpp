@@ -1,3 +1,4 @@
+#include "HMT.h"
 #include "PESim.h"
 #include "memory_system.h"
 #include <cassert>
