@@ -24,6 +24,10 @@ enum HMT_flag_t{
     NA,
 };
 
+/*
+ * We do not use tiny_dram_bank. Instead we use DRAMSim3 with pim bank mode as PIM MC
+ * This class is abandoned
+ */
 
 class tiny_dram_bank{
     public:
@@ -82,7 +86,7 @@ class tiny_dram_bank{
 
 class SimdMemory {
 public:
-    SimdMemory();
+    SimdMemory(int ch, int ra, int bg, int ba);
     void add_region(uint32_t varidx, size_t size_bytes);
     void fill_region(uint32_t varidx, const std::vector<uint8_t> &data);
     bool check_fatptr(const SimdFatptr &ptr, size_t size_bytes) const;
@@ -107,6 +111,8 @@ private:
 
     tiny_dram_bank dram_bank;
     std::unique_ptr<dramsim3_wrapper> dsim3;
+
+    int ch_, ra_, bg_, ba_;
 };
 
 #endif

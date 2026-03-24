@@ -42,14 +42,14 @@ private:
     static constexpr size_t kFatptrRegisters = 4;
     static constexpr size_t kVectorBytes = 16;
 
-    //Parameter comes from DDR4_4Gb_x16_3200
-    int tCCD_L = 8;
-    int tRP = 22;
-    int tRCD = 22;
+    //Parameter comes from DDR4_4Gb_x16_2400
+    int tCCD_L = 6;
+    int tRP = 17;
+    int tRCD = 17;
 
-    //should be the same as in HMT.h
-    int tRP_FAST = 12; 
-    int tRCD_FAST = 12;
+    //Calculation might be wrong. For now assume it is
+    int tRP_FAST = (tRP + 1) / 2; 
+    int tRCD_FAST = (tRCD + 1) / 2;
 
 #ifndef MASA_TLDRAM
     int pre_pause_hold_cycl = ROUND_UP(std::max(tRP + tRCD - tCCD_L, tCCD_L), tCCD_L) - 1;

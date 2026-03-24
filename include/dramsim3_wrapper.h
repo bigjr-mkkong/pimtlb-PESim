@@ -17,7 +17,7 @@ class dramsim3_wrapper{
         int pend_read = 0;
         int pend_write = 0;
     };
-    dramsim3_wrapper();
+    dramsim3_wrapper(int ch, int ra, int bg, int ba);
     bool WillAcceptTransaction(uint64_t hex_addr, bool is_write) const;
     bool AddTransaction(uint64_t hex_addr, bool is_write, bool is_pim = false);
     void ClockTick();
@@ -32,6 +32,7 @@ class dramsim3_wrapper{
     void read_callback(uint64_t addr);
     void write_callback(uint64_t addr);
 
+    int ch_, ra_, bg_, ba_;
 
 };
 

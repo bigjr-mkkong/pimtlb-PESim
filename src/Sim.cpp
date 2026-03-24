@@ -1,6 +1,8 @@
 #include "HMT.h"
 #include "PESim.h"
+#include "cpu.h"
 #include "memory_system.h"
+#include "pesim-configs.h"
 #include <cassert>
 #include <memory>
 #include <queue>
@@ -38,32 +40,14 @@ bool SimdSim::dramsim3_empty(){
 }
 
 
-SimdSim::SimdSim() : cpu_(&memory_) {
-    program_.push_back(SimdInstruction{
-        .opcode = SimdOpcode::Add128,
-        .rd = 1,
-        .rs1 = 1,
-        .rs2 = 2,
-        .imm = 0,
-        .mask = 0,
-        .fatptr_imm = {0, 0},
-    });
-    program_.push_back(SimdInstruction{
-        .opcode = SimdOpcode::Jump,
-        .rd = 0,
-        .rs1 = 0,
-        .rs2 = 0,
-        .imm = 0,
-        .mask = 0,
-        .fatptr_imm = {0, 0},
-    });
-    
+SimdSim::SimdSim() : memory_(0, 0, 0, 0), cpu_(&memory_){
     dramsim3 = std::make_unique<dramsim3::MemorySystem>(
-        "/home/michael/Projects/pimtlb/PIM-AutoDSE/libpimeval/dramsim3/configs",
-        "/home/michael/Projects/pimtlb/PIM-AutoDSE/libpimeval/output",
+        MEM_CONFIG_PATH,
+        MEM_OUTPUT_PATH,
         [this](uint64_t addr) {this->dramsim3_read_callback(addr);},
         [this](uint64_t addr) {this->dramsim3_write_callback(addr);}
     );
+    dramsim3->SetPimMode(false);
 }
 
 bool SimdSim::empty_program(){
@@ -89,7 +73,7 @@ void SimdSim::run_MEM(sim_option_t opt){
         }
     }
     if(early_stop){
-        std::cout<<"MEM Simulation finished before time runs out"<<std::endl;
+        std::cout<<"MEM Simulation finished before time runs out :)"<<std::endl;
     }
     std::cout<<"MEM Simulation done in cycle: "<<i<<std::endl;
 }
@@ -107,7 +91,7 @@ void SimdSim::run_PIM(sim_option_t opt){
     }
 
     if(early_stop){
-        std::cout<<"PIM Simulation finished before time runs out"<<std::endl;
+        std::cout<<"PIM Simulation finished before time runs out :)"<<std::endl;
     }
 
     std::cout<<"PIM Simulation done in cycle: "<<i<<std::endl;
@@ -257,7 +241,7 @@ void SimdSim::run_HYBRID(sim_option_t opt){
         }
 
         if (pe_fin && trace_fin) {
-            std::cout << "HYBRID Simulation done in cycle: " << i << std::endl;
+            std::cout << "HYBRID Simulation done :) Cycle: " << i << std::endl;
             break;
         }
     }

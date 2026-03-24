@@ -12,8 +12,12 @@
 
 // #include "../../src/pimSim.h"
 //
-SimdMemory::SimdMemory() {
-    dsim3 = std::make_unique<dramsim3_wrapper>();
+SimdMemory::SimdMemory(int ch, int ra, int bg, int ba) {
+    ch_ = ch;
+    ra_ = ra;
+    bg_ = bg;
+    ba_ = ba;
+    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_);
 }
 
 const SimdMemory::Region *SimdMemory::find_region(size_t phys_addr) const {
@@ -267,7 +271,7 @@ void SimdMemory::reset() {
     dram_bank.reset();
     regions_.clear();
 
-    dsim3 = std::make_unique<dramsim3_wrapper>();
+    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_);
     return;
 }
 
