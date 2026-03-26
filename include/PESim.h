@@ -1,6 +1,7 @@
 #ifndef __SIM_H__
 #define __SIM_H__
 
+#include "dramsim3_wrapper.h"
 #include "pesim-configs.h"
 #include "cpu.h"
 #include "HMT.h"
@@ -18,12 +19,9 @@ class SimdSim {
     std::vector<SimdInstruction> program_;
     std::priority_queue<trace_ent_t> traces_;
 
-    std::unique_ptr<dramsim3::MemorySystem> dramsim3;
-    std::map<uint64_t, int> pendmap;
+    std::unique_ptr<dramsim3_wrapper> MEMsim_dramsim3;
+    // std::map<uint64_t, int> pendmap;
 
-    void dramsim3_read_callback(uint64_t addr);
-    void dramsim3_write_callback(uint64_t addr);
-    bool dramsim3_empty();
     void run_MEM(sim_option_t opt);
     void run_PIM(sim_option_t opt);
     void run_HYBRID(sim_option_t opt);

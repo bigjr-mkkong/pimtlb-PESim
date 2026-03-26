@@ -96,30 +96,34 @@ void SimdCpu::set_freg(size_t idx, const SimdFatptr &value) {
     fregs_[idx] = value;
 }
 
-void SimdCpu::pause(){
+bool SimdCpu::pause(){
     if(!cpu_ready4signal) {
         std::cout<<"Pause failed because of timing violation, please try later"<<std::endl;
-        return;
+        return false;
     }
         
     cpu_pause_ = true;
     // std::cout<<"pre pause hold cycl:"<<pre_pause_hold_cycl<<std::endl;
     hold_cntr = pre_pause_hold_cycl;
+    return true;
 }
 
-void SimdCpu::resume(){
-    if(!cpu_pause_)
-        throw std::logic_error("Cannot resume cpu when it's not paused");
+bool SimdCpu::resume(){
+    if(!cpu_pause_){
+        return false;
+    }
 
     if(!cpu_ready4signal) {
         std::cout<<"resume failed because of timing violation, please try later"<<std::endl;
-        return;
+        return false;
     }
 
     cpu_pause_ = false;
     cpu_post_resume_delay = true;
     // std::cout<<"post pause hold cycl:"<<post_resume_hold_cycl<<std::endl;
     hold_cntr = post_resume_hold_cycl;
+
+    return true;
 }
 
 bool SimdCpu::uses_fatptr(const SimdInstruction &inst) const {

@@ -1,6 +1,7 @@
 #include "HMT.h"
 #include "PESim.h"
 #include "cpu.h"
+#include "dramsim3_wrapper.h"
 #include "memory_system.h"
 #include "pesim-configs.h"
 #include <cassert>
@@ -10,44 +11,9 @@
 #include <cstdlib>
 #include <iostream>
 
-#define MEM_BATCH_SZ    1
-
-void SimdSim::dramsim3_read_callback(uint64_t addr) {
-    pendmap[addr] -= 1;
-    if(pendmap[addr] < 0){
-        std::cerr<<"dramsim3 read callback failed"<<std::endl;
-        exit(1);
-    }
-    return;
-}
-
-void SimdSim::dramsim3_write_callback(uint64_t addr) {
-    pendmap[addr] -= 1;
-    if(pendmap[addr] < 0){
-        std::cerr<<"dramsim3 write callback failed"<<std::endl;
-        exit(1);
-    }
-    return;
-}
-
-bool SimdSim::dramsim3_empty(){
-    for(auto &i: pendmap) {
-        if(i.second > 0)
-            return false;
-    }
-
-    return true;
-}
-
 
 SimdSim::SimdSim() : memory_(0, 0, 0, 0), cpu_(&memory_){
-    dramsim3 = std::make_unique<dramsim3::MemorySystem>(
-        MEM_CONFIG_PATH,
-        MEM_OUTPUT_PATH,
-        [this](uint64_t addr) {this->dramsim3_read_callback(addr);},
-        [this](uint64_t addr) {this->dramsim3_write_callback(addr);}
-    );
-    dramsim3->SetPimMode(false);
+    MEMsim_dramsim3 = std::make_unique<dramsim3_wrapper>(0, 0, 0, 0, false);
 }
 
 bool SimdSim::empty_program(){
@@ -57,22 +23,23 @@ bool SimdSim::empty_program(){
 void SimdSim::run_MEM(sim_option_t opt){
     size_t i = 0;
     bool early_stop = false;
-    for(;i < opt.max_cycle; i++) {
+    for(;i < opt.max_cycle && !traces_.empty(); i++) {
         trace_ent_t tr = traces_.top();
         bool is_write = (tr.op == WRITE);
         if(i >= tr.time) {
-            if(dramsim3->WillAcceptTransaction(tr.addr, is_write)){
-                dramsim3->AddTransaction(tr.addr, is_write, false);
+            if(MEMsim_dramsim3->WillAcceptTransaction(tr.addr, is_write)){
+                MEMsim_dramsim3->AddTransaction(tr.addr, is_write, false);
                 traces_.pop();
             }
         }
 
-        if(dramsim3_empty() && traces_.empty()){
+        if(MEMsim_dramsim3->drained() && traces_.empty()){
             early_stop = true;
             break;
         }
+        MEMsim_dramsim3->ClockTick();
     }
-    if(early_stop){
+    if(early_stop || traces_.empty()){
         std::cout<<"MEM Simulation finished before time runs out :)"<<std::endl;
     }
     std::cout<<"MEM Simulation done in cycle: "<<i<<std::endl;
@@ -97,6 +64,11 @@ void SimdSim::run_PIM(sim_option_t opt){
     std::cout<<"PIM Simulation done in cycle: "<<i<<std::endl;
 
 }
+#define MEM_BATCH_SZ    4
+
+#include <vector>
+#include <iostream>
+
 void SimdSim::run_HYBRID(sim_option_t opt){
     size_t cycl = 0;
     cpu_.load_program(program_);
@@ -124,7 +96,14 @@ void SimdSim::run_HYBRID(sim_option_t opt){
 
     bool batch_started = false;
 
+    // Tracks pending read addresses to know when we are safe to switch
+    // without waiting for deferred writes to finish.
+    std::vector<uint64_t> pending_reads;
+
     for (size_t i = 0; i < opt.max_cycle; ++i) {
+
+        // Cache the stopped state at the start of the cycle
+        bool pe_stopped = cpu_.is_stopped();
 
         switch (sim_mode) {
 
@@ -136,9 +115,16 @@ void SimdSim::run_HYBRID(sim_option_t opt){
                 if (tr.time <= i) {
                     bool is_write = (tr.op != READ);
 
-                    if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
-                        dramsim3->AddTransaction(tr.addr, is_write, false);
-                        pendmap[tr.addr] += 1;
+                    // To ensure read gets the newest value, stall if there's a pending write to the same address.
+                    bool read_blocked_by_write = (!is_write && MEMsim_dramsim3->get_pend_write(tr.addr, false) != 0);
+
+                    if (!read_blocked_by_write && MEMsim_dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
+                        MEMsim_dramsim3->AddTransaction(tr.addr, is_write, false);
+
+                        if (!is_write) {
+                            pending_reads.push_back(tr.addr);
+                        }
+
                         traces_.pop();
 
                         batch_left = MEM_BATCH_SZ - 1;
@@ -153,15 +139,25 @@ void SimdSim::run_HYBRID(sim_option_t opt){
         }
 
         case MEM_RUN: {
-            if (batch_left > 0 && !traces_.empty()) {
+            bool pe_ready = pe_stopped ? true : cpu_.ready4signal();
+
+            // If the PE is stopped, bypass batch limits and consume traces as fast as DRAM allows.
+            bool can_issue = (batch_left > 0 || !pe_ready || pe_stopped);
+
+            if (can_issue && !traces_.empty()) {
                 trace_ent_t tr = traces_.top();
 
                 if (tr.time <= i) {
                     bool is_write = (tr.op != READ);
 
-                    if (dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
-                        dramsim3->AddTransaction(tr.addr, is_write, false);
-                        pendmap[tr.addr] += 1;
+                    bool read_blocked_by_write = (!is_write && MEMsim_dramsim3->get_pend_write(tr.addr, false) != 0);
+
+                    if (!read_blocked_by_write && MEMsim_dramsim3->WillAcceptTransaction(tr.addr, is_write)) {
+                        MEMsim_dramsim3->AddTransaction(tr.addr, is_write, false);
+
+                        if (!is_write) {
+                            pending_reads.push_back(tr.addr);
+                        }
 
                         traces_.pop();
                         batch_left--;
@@ -169,14 +165,32 @@ void SimdSim::run_HYBRID(sim_option_t opt){
                 }
             }
 
-            dramsim3->ClockTick();
+            MEMsim_dramsim3->ClockTick();
             mem_budget_cycles++;
 
-            if (batch_started && dramsim3_empty()) {
+            // Only verify if READ transactions are drained.
+            bool reads_drained = true;
+            for (auto it = pending_reads.begin(); it != pending_reads.end(); ) {
+                if (MEMsim_dramsim3->get_pend_read(*it, false) == 0) {
+                    it = pending_reads.erase(it);
+                } else {
+                    reads_drained = false;
+                    ++it;
+                }
+            }
+
+            bool active_traces = !traces_.empty() && traces_.top().time <= i;
+            bool want_to_issue = can_issue && active_traces;
+
+            // Switch back to PIM only if the PE is ready, reads are processed,
+            // we have exhausted our trace demands, AND the PE is actually still running.
+            if (!pe_stopped && batch_started && pe_ready && reads_drained && !want_to_issue) {
+                pending_reads.clear();
                 pim_budget_cycles = 0;
                 sim_mode = SWITCH_TO_PIM;
 
                 if (pimcpu_started) {
+                    std::cout<<"PIMCPU trying to resume @ "<< i<<std::endl;
                     cpu_.resume();
                 }
             }
@@ -185,6 +199,11 @@ void SimdSim::run_HYBRID(sim_option_t opt){
         }
 
         case SWITCH_TO_PIM: {
+            if (pe_stopped) {
+                sim_mode = SWITCH_TO_MEM;
+                break;
+            }
+
             if (!pimcpu_started) {
                 pimcpu_started = true;
                 sim_mode = PIM_RUN;
@@ -200,23 +219,34 @@ void SimdSim::run_HYBRID(sim_option_t opt){
         }
 
         case PIM_RUN: {
+            if (pe_stopped) {
+                sim_mode = SWITCH_TO_MEM;
+                break;
+            }
+
             cpu_.tick();
             cpu_.inc_cycl();
             pimcpu_started = true;
             pim_budget_cycles++;
 
-            if (pim_budget_cycles >= mem_budget_cycles) {
-                cpu_.pause();
+            if (cpu_.is_stopped() || pim_budget_cycles >= mem_budget_cycles) {
+                if (!cpu_.is_stopped()) {
+                    std::cout<<"PIMCPU trying to pause @ "<< i<<std::endl;
+                    cpu_.pause();
+                }
                 sim_mode = SWITCH_TO_MEM;
             }
             break;
         }
 
         case SWITCH_TO_MEM: {
-            cpu_.tick();
-            cpu_.inc_cycl();
+            if (!pe_stopped) {
+                cpu_.tick();
+                cpu_.inc_cycl();
+            }
 
-            if (cpu_.ready4signal()) {
+            // If the CPU is stopped, we skip waiting for the signal and immediately head back to wait for memory traces
+            if (pe_stopped || cpu_.ready4signal()) {
                 batch_left = MEM_BATCH_SZ;
                 batch_started = false;
                 mem_budget_cycles = 0;
@@ -230,12 +260,12 @@ void SimdSim::run_HYBRID(sim_option_t opt){
             break;
         }
 
-        if (cpu_.is_stopped() && !pe_fin) {
+        if (pe_stopped && !pe_fin) {
             std::cout << "Program finished at: " << i << std::endl;
             pe_fin = true;
         }
 
-        if (traces_.empty() && !trace_fin) {
+        if (traces_.empty() && !trace_fin && MEMsim_dramsim3->drained()) {
             std::cout << "Trace finished at: " << i << std::endl;
             trace_fin = true;
         }

@@ -6,14 +6,14 @@
 #include <memory>
 
 
-dramsim3_wrapper::dramsim3_wrapper(int ch, int ra, int bg, int ba){
+dramsim3_wrapper::dramsim3_wrapper(int ch, int ra, int bg, int ba, bool is_pim){
     ms = std::make_unique<dramsim3::MemorySystem>(
             MEM_CONFIG_PATH,
             MEM_OUTPUT_PATH,
             [this] (uint64_t addr) {this->read_callback(addr);},
             [this] (uint64_t addr) {this->write_callback(addr);}
     );
-    ms->SetPimMode(true);
+    ms->SetPimMode(is_pim);
 
     ch_ = ch;
     ra_ = ra;
@@ -25,7 +25,12 @@ bool dramsim3_wrapper::WillAcceptTransaction(uint64_t hex_addr, bool is_write) c
     return ms->WillAcceptTransaction(hex_addr, is_write);
 }
 bool dramsim3_wrapper::AddTransaction(uint64_t hex_addr, bool is_write, bool is_pim) {
-    uint64_t real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, hex_addr);
+    uint64_t real_addr;
+    if(is_pim) {
+        real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, hex_addr);
+    } else {
+        real_addr = hex_addr;
+    }
 
     bool ret = ms->AddTransaction(real_addr, is_write, is_pim);
 
@@ -75,16 +80,26 @@ bool dramsim3_wrapper::drained() {
     return true;
 }
 
-int dramsim3_wrapper::get_pend_read(uint64_t addr){
-    uint64_t real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, addr);
+int dramsim3_wrapper::get_pend_read(uint64_t addr, bool is_pim){
+    uint64_t real_addr;
+    if(is_pim) {
+        real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, addr);
+    } else {
+        real_addr = addr;
+    }
     auto it = vis.find(real_addr);
     if(it == vis.end())
         return 0;
     else
         return it->second.pend_read;
 }
-int dramsim3_wrapper::get_pend_write(uint64_t addr){
-    uint64_t real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, addr);
+int dramsim3_wrapper::get_pend_write(uint64_t addr, bool is_pim){
+    uint64_t real_addr;
+    if(is_pim) {
+        real_addr = ms->BankLocalToGlobalAddr(ch_, ra_, bg_, ba_, addr);
+    } else {
+        real_addr = addr;
+    }
     auto it = vis.find(real_addr);
     if(it == vis.end())
         return 0;

@@ -28,8 +28,8 @@ public:
 
     SimdFatptr get_freg(size_t idx) const;
     void set_freg(size_t idx, const SimdFatptr &value);
-    void pause();
-    void resume();
+    bool pause();
+    bool resume();
 
     void reset();
 

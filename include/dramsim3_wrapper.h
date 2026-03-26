@@ -17,13 +17,13 @@ class dramsim3_wrapper{
         int pend_read = 0;
         int pend_write = 0;
     };
-    dramsim3_wrapper(int ch, int ra, int bg, int ba);
+    dramsim3_wrapper(int ch, int ra, int bg, int ba, bool is_pim);
     bool WillAcceptTransaction(uint64_t hex_addr, bool is_write) const;
     bool AddTransaction(uint64_t hex_addr, bool is_write, bool is_pim = false);
     void ClockTick();
     bool drained();
-    int get_pend_read(uint64_t addr);
-    int get_pend_write(uint64_t addr);
+    int get_pend_read(uint64_t addr, bool is_pim);
+    int get_pend_write(uint64_t addr, bool is_pim);
 
     private:
     std::unique_ptr<dramsim3::MemorySystem> ms;

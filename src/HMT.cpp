@@ -17,7 +17,7 @@ SimdMemory::SimdMemory(int ch, int ra, int bg, int ba) {
     ra_ = ra;
     bg_ = bg;
     ba_ = ba;
-    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_);
+    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_, true);
 }
 
 const SimdMemory::Region *SimdMemory::find_region(size_t phys_addr) const {
@@ -237,7 +237,7 @@ size_t SimdMemory::get_delay_cycl_dramsim3(size_t phys_addr, bool is_read) {
     size_t ticks = 0;
     bool is_write = !is_read;
     if(is_read) {
-        while (dsim3->get_pend_write(phys_addr) != 0 || !dsim3->WillAcceptTransaction(phys_addr, false)) {
+        while (dsim3->get_pend_write(phys_addr, true) != 0 || !dsim3->WillAcceptTransaction(phys_addr, false)) {
             ticks++;
             dsim3->ClockTick();
         }
@@ -247,7 +247,7 @@ size_t SimdMemory::get_delay_cycl_dramsim3(size_t phys_addr, bool is_read) {
             std::cerr<<"Failed to add transaction of address: "<<phys_addr<<std::endl;
         }
 
-        while (dsim3->get_pend_read(phys_addr) != 0) {
+        while (dsim3->get_pend_read(phys_addr, true) != 0) {
             ticks++;
             dsim3->ClockTick();
         }
@@ -271,7 +271,7 @@ void SimdMemory::reset() {
     dram_bank.reset();
     regions_.clear();
 
-    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_);
+    dsim3 = std::make_unique<dramsim3_wrapper>(ch_, ra_, bg_, ba_, true);
     return;
 }
 
