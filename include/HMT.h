@@ -97,6 +97,8 @@ public:
     size_t get_delay_cycl(size_t phys_addr, bool is_read, size_t cur_cycl);
     size_t get_delay_cycl_dramsim3(size_t phys_addr, bool is_read);
 
+    const dramsim3_wrapper *get_dsim_wrapper(){return dsim3.get();}
+
     void reset();
     tiny_dram_bank &bank_model();
 

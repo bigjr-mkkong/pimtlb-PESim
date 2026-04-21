@@ -1,7 +1,7 @@
 #ifndef __CPU__H__
 #define __CPU__H__
 
-#include "pesim-configs.h""
+#include "pesim-configs.h"
 #include <array>
 #include <queue>
 #include <vector>

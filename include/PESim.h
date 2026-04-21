@@ -18,13 +18,21 @@ class SimdSim {
     SimdCpu cpu_;
     std::vector<SimdInstruction> program_;
     std::priority_queue<trace_ent_t> traces_;
+    std::vector<trace_ent_t> trace_copy;
 
     std::unique_ptr<dramsim3_wrapper> MEMsim_dramsim3;
     // std::map<uint64_t, int> pendmap;
 
     void run_MEM(sim_option_t opt);
+    void run_MEM_nobatch(sim_option_t opt);
+    void run_MEM_batch(sim_option_t opt);
+    void run_MEM_adaptive(sim_option_t opt);
     void run_PIM(sim_option_t opt);
     void run_HYBRID(sim_option_t opt);
+    void run_Adaptive_HYBRID(sim_option_t opt);
+
+
+    void run_GENADDR(sim_option_t opt);
 
 public:
     SimdSim();

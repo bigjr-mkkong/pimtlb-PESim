@@ -105,6 +105,7 @@ bool SimdCpu::pause(){
     cpu_pause_ = true;
     // std::cout<<"pre pause hold cycl:"<<pre_pause_hold_cycl<<std::endl;
     hold_cntr = pre_pause_hold_cycl;
+    cpu_ready4signal = false;
     return true;
 }
 
@@ -122,6 +123,7 @@ bool SimdCpu::resume(){
     cpu_post_resume_delay = true;
     // std::cout<<"post pause hold cycl:"<<post_resume_hold_cycl<<std::endl;
     hold_cntr = post_resume_hold_cycl;
+    cpu_ready4signal = false;
 
     return true;
 }
@@ -377,16 +379,12 @@ void SimdCpu::tick() {
     } else if (cpu_pause_) {
         next_pc = pc_;
         next_if_id.valid = false;
-        cpu_ready4signal = true;
 
         if (!if_id_.valid && !id_hmt_.valid && !hmt_ex_.valid && !ex_mem_.valid && !mem_wb_.valid) {
-            //hold for a while before get any signals
             hold_cntr--;
-            if(hold_cntr >= 0) {
-                cpu_ready4signal = false;
+            if(hold_cntr < 0) {
+                cpu_ready4signal = true;
             }
-        } else {
-            cpu_ready4signal = false;
         }
     } else if (cpu_post_resume_delay) {
         next_pc = pc_;
@@ -396,10 +394,7 @@ void SimdCpu::tick() {
         if(hold_cntr <= 0) {
             cpu_post_resume_delay = false;
             cpu_ready4signal = true;
-        } else {
-            cpu_ready4signal = false;
         }
-
     } else if (!cpu_stop_) {
         next_pc = pc_ + 1;
     }
